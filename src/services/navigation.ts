@@ -210,3 +210,42 @@ function getWeatherInfo(code: number): { text: string; icon: string } {
   if (code === 95 || code === 96 || code === 99) return { text: 'Thunderstorm', icon: '⛈️' };
   return { text: 'Overcast', icon: '☁️' };
 }
+
+export interface AutocompleteResult {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export async function searchLocations(query: string): Promise<AutocompleteResult[]> {
+  if (!query.trim()) return [];
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+      query
+    )}&format=json&limit=5&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'RealTimeDrivingSimulator/1.0 (ambient-dashboard-agentic-dev)',
+        'Accept-Language': 'en',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Nominatim search failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data) return [];
+    
+    return data.map((item: any) => ({
+      name: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon)
+    }));
+  } catch (error) {
+    console.error('Search locations error:', error);
+    return [];
+  }
+}
+

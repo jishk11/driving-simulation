@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Navigation, RotateCcw, Play, Pause, Loader2, ArrowRightLeft } from 'lucide-react';
+import { searchLocations } from '../services/navigation';
 
 interface ControlPanelProps {
   origin: string;
@@ -28,8 +29,100 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   status,
   error,
 }) => {
+  const [originResults, setOriginResults] = useState<string[]>([]);
+  const [destResults, setDestResults] = useState<string[]>([]);
+  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
+  const [showDestDropdown, setShowDestDropdown] = useState(false);
+  const [isLoadingOrigin, setIsLoadingOrigin] = useState(false);
+  const [isLoadingDest, setIsLoadingDest] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const POPULAR_PRESETS = [
+    'San Diego, CA',
+    'San Francisco, CA',
+    'Los Angeles, CA',
+    'Seattle, WA',
+    'New York, NY',
+    'Chicago, IL',
+    'Miami, FL',
+    'Austin, TX',
+    'Denver, CO',
+    'Boston, MA'
+  ];
+
+  // Debounced search for Origin
+  useEffect(() => {
+    if (origin.trim().length < 3) {
+      setOriginResults([]);
+      setIsLoadingOrigin(false);
+      return;
+    }
+
+    setIsLoadingOrigin(true);
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const results = await searchLocations(origin);
+        setOriginResults(results.map(r => r.name));
+      } catch (err) {
+        console.error('Origin autocomplete search error:', err);
+      } finally {
+        setIsLoadingOrigin(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounce);
+  }, [origin]);
+
+  // Debounced search for Destination
+  useEffect(() => {
+    if (destination.trim().length < 3) {
+      setDestResults([]);
+      setIsLoadingDest(false);
+      return;
+    }
+
+    setIsLoadingDest(true);
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const results = await searchLocations(destination);
+        setDestResults(results.map(r => r.name));
+      } catch (err) {
+        console.error('Destination autocomplete search error:', err);
+      } finally {
+        setIsLoadingDest(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounce);
+  }, [destination]);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowOriginDropdown(false);
+        setShowDestDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectOrigin = (val: string) => {
+    setOrigin(val);
+    setShowOriginDropdown(false);
+  };
+
+  const handleSelectDest = (val: string) => {
+    setDestination(val);
+    setShowDestDropdown(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowOriginDropdown(false);
+    setShowDestDropdown(false);
     if (status === 'idle' || status === 'ready') {
       onCalculate();
     }
@@ -40,6 +133,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     const temp = origin;
     setOrigin(destination);
     setDestination(temp);
+    setShowOriginDropdown(false);
+    setShowDestDropdown(false);
   };
 
   const isInputDisabled = status === 'driving' || status === 'paused' || status === 'loading';
@@ -58,7 +153,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative space-y-3">
+          <div ref={containerRef} className="relative space-y-3">
             {/* Input Origin */}
             <div className="relative">
               <span className="absolute left-3 top-3.5 text-emerald-400">
@@ -69,10 +164,61 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 placeholder="Origin (e.g. San Diego, CA)"
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
+                onFocus={() => {
+                  setShowOriginDropdown(true);
+                  setShowDestDropdown(false);
+                }}
                 disabled={isInputDisabled}
                 className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
                 required
               />
+              
+              {/* Origin Dropdown Menu */}
+              {showOriginDropdown && !isInputDisabled && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-[1100] max-h-60 overflow-y-auto rounded-xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-md shadow-2xl p-1.5 scrollbar-thin">
+                  {isLoadingOrigin ? (
+                    <div className="flex items-center justify-center py-3 text-xs text-slate-400">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5 text-blue-500" />
+                      <span>Searching coordinates...</span>
+                    </div>
+                  ) : origin.trim().length >= 3 && originResults.length === 0 ? (
+                    <div className="text-center py-3 text-xs text-slate-500">
+                      No matching locations found
+                    </div>
+                  ) : (
+                    <>
+                      {/* Curated list or search results */}
+                      {origin.trim().length < 3 ? (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">Popular Cities</div>
+                          {POPULAR_PRESETS.map((city) => (
+                            <button
+                              key={`preset-orig-${city}`}
+                              type="button"
+                              onClick={() => handleSelectOrigin(city)}
+                              className="w-full text-left px-2.5 py-2 text-xs text-slate-300 hover:bg-blue-600/30 hover:text-white rounded-lg transition-all truncate"
+                            >
+                              📍 {city}
+                            </button>
+                          ))}
+                        </>
+                      ) : (
+                        originResults.map((result, idx) => (
+                          <button
+                            key={`search-orig-${idx}`}
+                            type="button"
+                            onClick={() => handleSelectOrigin(result)}
+                            className="w-full text-left px-2.5 py-2 text-xs text-slate-300 hover:bg-blue-600/30 hover:text-white rounded-lg transition-all truncate"
+                            title={result}
+                          >
+                            🗺️ {result}
+                          </button>
+                        ))
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Swap Button */}
@@ -98,10 +244,61 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 placeholder="Destination (e.g. San Francisco, CA)"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
+                onFocus={() => {
+                  setShowDestDropdown(true);
+                  setShowOriginDropdown(false);
+                }}
                 disabled={isInputDisabled}
                 className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
                 required
               />
+
+              {/* Destination Dropdown Menu */}
+              {showDestDropdown && !isInputDisabled && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-[1100] max-h-60 overflow-y-auto rounded-xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-md shadow-2xl p-1.5 scrollbar-thin">
+                  {isLoadingDest ? (
+                    <div className="flex items-center justify-center py-3 text-xs text-slate-400">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5 text-blue-500" />
+                      <span>Searching coordinates...</span>
+                    </div>
+                  ) : destination.trim().length >= 3 && destResults.length === 0 ? (
+                    <div className="text-center py-3 text-xs text-slate-500">
+                      No matching locations found
+                    </div>
+                  ) : (
+                    <>
+                      {/* Curated list or search results */}
+                      {destination.trim().length < 3 ? (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] uppercase font-bold text-gray-500 tracking-wider">Popular Cities</div>
+                          {POPULAR_PRESETS.map((city) => (
+                            <button
+                              key={`preset-dest-${city}`}
+                              type="button"
+                              onClick={() => handleSelectDest(city)}
+                              className="w-full text-left px-2.5 py-2 text-xs text-slate-300 hover:bg-blue-600/30 hover:text-white rounded-lg transition-all truncate"
+                            >
+                              📍 {city}
+                            </button>
+                          ))}
+                        </>
+                      ) : (
+                        destResults.map((result, idx) => (
+                          <button
+                            key={`search-dest-${idx}`}
+                            type="button"
+                            onClick={() => handleSelectDest(result)}
+                            className="w-full text-left px-2.5 py-2 text-xs text-slate-300 hover:bg-blue-600/30 hover:text-white rounded-lg transition-all truncate"
+                            title={result}
+                          >
+                            🗺️ {result}
+                          </button>
+                        ))
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
