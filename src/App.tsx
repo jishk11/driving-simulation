@@ -371,13 +371,34 @@ function App() {
     };
   }, [status]);
 
-  // Calculate Dynamic Day/Night state (Day Mode = 6:00 AM to 7:59 PM)
+  // Calculate Dynamic Day/Night state based on car's longitude solar time
   const virtualTime = (status === 'driving' || status === 'paused' || status === 'completed')
     ? simStartTime + virtualElapsedMs
     : Date.now();
   const virtualDate = new Date(virtualTime);
-  const virtualHour = virtualDate.getHours();
+  
+  // Use current car position, staged route origin, or default center of the US
+  let activeLongitude = -95.7129; // default center of US
+  if (carPosition) {
+    activeLongitude = carPosition[1];
+  } else if (route.length > 0) {
+    activeLongitude = route[0][1];
+  }
+  
+  // Detect if browser system is currently in DST to adjust solar time
+  const systemDate = new Date();
+  const jan = new Date(systemDate.getFullYear(), 0, 1).getTimezoneOffset();
+  const jul = new Date(systemDate.getFullYear(), 6, 1).getTimezoneOffset();
+  const isDstActive = systemDate.getTimezoneOffset() < Math.max(jan, jul);
+  
+  const baseOffset = Math.round(activeLongitude / 15);
+  const offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
+  
+  // Calculate local hour at coordinate based on UTC simulated time
+  const utcHours = virtualDate.getUTCHours();
+  const virtualHour = (utcHours + offsetHours + 24) % 24;
   const isDarkMode = virtualHour < 6 || virtualHour >= 20;
+
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col">
