@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0b0f19;
+  color: #f3f4f6;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom leaflet style overrides to fit our premium dark theme */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #0b0f19 !important;
+}
+
+.leaflet-bar {
+  border: none !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+.leaflet-bar a {
+  background-color: rgba(17, 24, 39, 0.8) !important;
+  color: #e5e7eb !important;
+  border-bottom: 1px solid rgba(75, 85, 99, 0.3) !important;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(31, 41, 55, 0.9) !important;
+  color: #3b82f6 !important;
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background-color: rgba(17, 24, 39, 0.4) !important;
+  color: #9ca3af !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(17, 24, 39, 0.6) !important;
+  backdrop-filter: blur(4px);
+  color: #9ca3af !important;
+  font-size: 10px !important;
+  border-radius: 4px 0 0 0;
+}
+
+.leaflet-control-attribution a {
+  color: #60a5fa !important;
+}
+
+/* Premium Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.8);
+}
+
+/* Glassmorphism custom classes */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.05);
+}
