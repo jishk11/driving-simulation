@@ -15,6 +15,7 @@ interface DashboardProps {
   currentSpeedMph: number;   // calculated speed in MPH
   speedLimitMps: number;     // speed limit in m/s
   weather: WeatherData | null;
+  isDarkMode: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -30,6 +31,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   currentSpeedMph,
   speedLimitMps,
   weather,
+  isDarkMode,
 }) => {
   // Convert distance to miles & km
   const distanceKm = distance / 1000;
@@ -68,7 +70,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Math.min(100, (elapsedSec / durationSec) * 100);
   }, [elapsedSec, durationSec]);
 
-  // Speeds in metric & imperial
+  // Speeds in metric
   const currentSpeedKmh = currentSpeedMph * 1.609344;
 
   // Calculate speed limit values rounded to standard intervals
@@ -79,13 +81,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Math.max(15, Math.round(rawMph / 5) * 5);
   }, [speedLimitMps]);
 
+  // Style constants based on Day/Night (isDarkMode)
+  const hudContainerClass = isDarkMode
+    ? 'glass-panel glass-panel-glow text-white border-white/08 shadow-2xl'
+    : 'bg-white/90 border border-slate-200/60 backdrop-blur-md text-slate-800 shadow-xl shadow-slate-200/30';
+
+  const gridItemClass = isDarkMode
+    ? 'bg-slate-900/40 border-slate-800/40 text-slate-300'
+    : 'bg-slate-50/70 border-slate-200/50 text-slate-700';
+
+  const statLabelClass = isDarkMode ? 'text-gray-400' : 'text-slate-500';
+  const statValClass = isDarkMode ? 'text-white' : 'text-slate-900';
+  const subTextClass = isDarkMode ? 'text-slate-400' : 'text-slate-500';
+
   if (distance <= 0) return null;
 
   return (
     <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 z-[1000] w-auto md:w-96">
-      <div className="glass-panel glass-panel-glow rounded-2xl p-5 shadow-2xl transition-all duration-300">
-        <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">Telemetry HUD</h2>
+      <div className={`rounded-2xl p-5 transition-all duration-500 ${hudContainerClass}`}>
+        <div className={`flex items-center justify-between mb-4 border-b pb-3 ${isDarkMode ? 'border-slate-800' : 'border-slate-200/80'}`}>
+          <h2 className={`text-sm font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Telemetry HUD</h2>
           {isDriving ? (
             <span className="flex items-center space-x-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
@@ -98,18 +113,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Live Weather Integration Banner */}
         {weather && (
-          <div className="mb-4 bg-slate-900/50 border border-slate-800/60 rounded-xl p-3 flex items-center justify-between">
+          <div className={`mb-4 border rounded-xl p-3 flex items-center justify-between transition-all duration-500 ${
+            isDarkMode ? 'bg-slate-900/50 border-slate-800/60' : 'bg-slate-100/40 border-slate-200/60'
+          }`}>
             <div className="flex items-center space-x-3">
               <span className="text-2xl select-none" role="img" aria-label={weather.text}>
                 {weather.icon}
               </span>
               <div>
-                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Local Weather</p>
-                <p className="text-xs font-semibold text-slate-200">{weather.text}</p>
+                <p className={`text-[9px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Local Weather</p>
+                <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{weather.text}</p>
               </div>
             </div>
-            <div className="bg-slate-950/40 px-2.5 py-1 rounded-lg border border-slate-800/40">
-              <span className="text-sm font-black text-white">{Math.round(weather.temp)}°F</span>
+            <div className={`px-2.5 py-1 rounded-lg border transition-all duration-500 ${
+              isDarkMode ? 'bg-slate-950/40 border-slate-800/40 text-white' : 'bg-white/80 border-slate-200/40 text-slate-800 shadow-sm'
+            }`}>
+              <span className="text-sm font-black">{Math.round(weather.temp)}°F</span>
             </div>
           </div>
         )}
@@ -117,31 +136,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* 2x2 Grid Stats */}
         <div className="grid grid-cols-2 gap-4">
           {/* Distance */}
-          <div className="bg-slate-900/40 border border-slate-800/40 rounded-xl p-3 flex items-center space-x-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+            <div className={`p-2 rounded-lg text-blue-500 flex-shrink-0 ${isDarkMode ? 'bg-blue-500/10' : 'bg-blue-500/15'}`}>
               <Route className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Distance</p>
-              <p className="text-sm font-bold text-white leading-tight">
+              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Distance</p>
+              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
                 {distanceMiles.toFixed(1)} mi
               </p>
-              <p className="text-[10px] text-slate-400">{distanceKm.toFixed(1)} km</p>
+              <p className={`text-[10px] ${subTextClass}`}>{distanceKm.toFixed(1)} km</p>
             </div>
           </div>
 
           {/* Speed */}
-          <div className="bg-slate-900/40 border border-slate-800/40 rounded-xl p-3 flex items-center justify-between">
+          <div className={`border rounded-xl p-3 flex items-center justify-between transition-all duration-500 ${gridItemClass}`}>
             <div className="flex items-center space-x-3 min-w-0">
-              <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400 flex-shrink-0">
+              <div className={`p-2 rounded-lg text-amber-500 flex-shrink-0 ${isDarkMode ? 'bg-amber-500/10' : 'bg-amber-500/15'}`}>
                 <Gauge className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Velocity</p>
-                <p className="text-sm font-bold text-white leading-tight truncate">
+                <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
+                <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
                   {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
                 </p>
-                <p className="text-[10px] text-slate-400 truncate">
+                <p className={`text-[10px] truncate ${subTextClass}`}>
                   {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
                 </p>
               </div>
@@ -161,30 +180,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Duration */}
-          <div className="bg-slate-900/40 border border-slate-800/40 rounded-xl p-3 flex items-center space-x-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+            <div className={`p-2 rounded-lg text-purple-500 flex-shrink-0 ${isDarkMode ? 'bg-purple-500/10' : 'bg-purple-500/15'}`}>
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Total Time</p>
-              <p className="text-sm font-bold text-white leading-tight">
+              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Total Time</p>
+              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
                 {totalHours > 0 ? `${totalHours}h ` : ''}{totalMins}m
               </p>
-              <p className="text-[10px] text-slate-400">{formatTime(duration)}</p>
+              <p className={`text-[10px] ${subTextClass}`}>{formatTime(duration)}</p>
             </div>
           </div>
 
           {/* Time Remaining / ETA */}
-          <div className="bg-slate-900/40 border border-slate-800/40 rounded-xl p-3 flex items-center space-x-3">
-            <div className="p-2 bg-pink-500/10 rounded-lg text-pink-400">
+          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+            <div className={`p-2 rounded-lg text-pink-500 flex-shrink-0 ${isDarkMode ? 'bg-pink-500/10' : 'bg-pink-500/15'}`}>
               <Compass className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">ETA</p>
-              <p className="text-sm font-bold text-white leading-tight truncate">
+              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>ETA</p>
+              <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
                 {etaString}
               </p>
-              <p className="text-[10px] text-slate-400">
+              <p className={`text-[10px] ${subTextClass}`}>
                 -{formatTime(remainingSec)}
               </p>
             </div>
@@ -193,32 +212,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Progress Bar */}
         <div className="mt-4">
-          <div className="flex justify-between items-center text-[10px] text-gray-400 mb-1">
+          <div className={`flex justify-between items-center text-[10px] mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
             <span>Route Progress</span>
-            <span className="font-semibold text-white">{progressPercent.toFixed(2)}%</span>
+            <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{progressPercent.toFixed(2)}%</span>
           </div>
-          <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800/80">
+          <div className={`w-full rounded-full h-2 overflow-hidden border ${
+            isDarkMode ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-100 border-slate-200/80'
+          }`}>
             <div
               className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+          <div className={`flex justify-between text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
             <span>Elapsed: {formatTime(elapsedSec)}</span>
             <span>Remaining: {formatTime(remainingSec)}</span>
           </div>
         </div>
 
         {/* Camera and Multiplier Controls */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800/60 gap-3">
+        <div className={`flex items-center justify-between mt-4 pt-3 border-t gap-3 ${isDarkMode ? 'border-slate-800/60' : 'border-slate-200/60'}`}>
           {/* Camera follow toggler */}
           <button
             type="button"
             onClick={() => setLockCamera(!lockCamera)}
             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
               lockCamera
-                ? 'bg-blue-600/25 border-blue-500/45 text-blue-300 hover:bg-blue-600/35'
-                : 'bg-slate-900 border-slate-800 text-gray-400 hover:text-white hover:border-gray-700'
+                ? isDarkMode
+                  ? 'bg-blue-600/25 border-blue-500/45 text-blue-300 hover:bg-blue-600/35'
+                  : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                : isDarkMode
+                  ? 'bg-slate-900 border-slate-800 text-gray-400 hover:text-white hover:border-gray-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300'
             }`}
           >
             {lockCamera ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -226,7 +251,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
 
           {/* Time speedup multiplier */}
-          <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+          <div className={`flex items-center space-x-1 border rounded-lg p-0.5 transition-all duration-500 ${
+            isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}>
             {[1, 10, 100, 1000].map((m) => (
               <button
                 key={m}
@@ -236,7 +263,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
                   speedMultiplier === m && isDriving
                     ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
-                    : 'text-gray-400 hover:text-white'
+                    : isDarkMode
+                      ? 'text-gray-400 hover:text-white'
+                      : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title={`${m}x speed`}
               >
@@ -248,7 +277,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Throttling Advisory Alert */}
         {isDriving && speedMultiplier === 1 && (
-          <div className="mt-3 flex items-start space-x-2 text-[10px] bg-slate-950/60 border border-slate-800/50 p-2 rounded-lg text-slate-400">
+          <div className={`mt-3 flex items-start space-x-2 text-[10px] border p-2 rounded-lg transition-all duration-500 ${
+            isDarkMode ? 'bg-slate-950/60 border-slate-800/50 text-slate-400' : 'bg-slate-50/60 border-slate-200/50 text-slate-500'
+          }`}>
             <ShieldAlert className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
             <span>
               Background tab interpolation active. If the tab goes to sleep, the car will teleport to the correct spot upon wake.

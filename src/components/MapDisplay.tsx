@@ -7,6 +7,7 @@ interface MapDisplayProps {
   carPosition: [number, number] | null;
   carBearing: number;
   lockCamera: boolean;
+  isDarkMode: boolean;
 }
 
 // Custom Leaflet Icons using Inline SVGs to match premium dark style
@@ -74,6 +75,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   carPosition,
   carBearing,
   lockCamera,
+  isDarkMode,
 }) => {
   // Center of the US for default viewport
   const defaultCenter: [number, number] = [37.0902, -95.7129];
@@ -123,9 +125,14 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         zoomControl={false} // Disable standard controls to keep it tidy
         className="w-full h-full"
       >
-        {/* CartoDB Dark Matter tiles layer */}
+        {/* Swappable Day/Night CartoDB tiles layer */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          key={isDarkMode ? 'dark-tiles' : 'light-tiles'}
+          url={
+            isDarkMode
+              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          }
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
 

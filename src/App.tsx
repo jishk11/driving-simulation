@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { Dashboard } from './components/Dashboard';
 import { MapDisplay } from './components/MapDisplay';
+import { WeatherOverlay } from './components/WeatherOverlay';
 import { geocodeAddress, fetchRoute, fetchNearestRoadData, fetchCurrentWeather } from './services/navigation';
 import type { WeatherData } from './services/navigation';
 import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance } from './utils/geo';
@@ -35,6 +36,7 @@ function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
   // Time-tracking states for background-resilient interpolation:
+  const [simStartTime, setSimStartTime] = useState<number>(0);
   const [virtualElapsedMs, setVirtualElapsedMs] = useState<number>(0);
   const [lastUpdateRealTime, setLastUpdateRealTime] = useState<number>(0);
 
@@ -157,6 +159,7 @@ function App() {
   // Start driving simulation
   const handleStartDrive = () => {
     const now = Date.now();
+    setSimStartTime(now);
     setStartTimeState(now);
     setStatus('driving');
   };
@@ -236,6 +239,7 @@ function App() {
     setCurrentSpeedMph(0);
     setSpeedLimitMps(0);
     setWeather(null);
+    setSimStartTime(0);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
     
@@ -367,6 +371,14 @@ function App() {
     };
   }, [status]);
 
+  // Calculate Dynamic Day/Night state (Day Mode = 6:00 AM to 7:59 PM)
+  const virtualTime = (status === 'driving' || status === 'paused' || status === 'completed')
+    ? simStartTime + virtualElapsedMs
+    : Date.now();
+  const virtualDate = new Date(virtualTime);
+  const virtualHour = virtualDate.getHours();
+  const isDarkMode = virtualHour < 6 || virtualHour >= 20;
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col">
       {/* Leaflet Map display takes full viewport background */}
@@ -376,8 +388,12 @@ function App() {
           carPosition={carPosition}
           carBearing={carBearing}
           lockCamera={lockCamera}
+          isDarkMode={isDarkMode}
         />
       </div>
+
+      {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
+      <WeatherOverlay weather={weather} />
 
       {/* Glassmorphic Control panel (Top Left) */}
       <ControlPanel
@@ -408,6 +424,7 @@ function App() {
         currentSpeedMph={currentSpeedMph}
         speedLimitMps={speedLimitMps}
         weather={weather}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

@@ -85,3 +85,22 @@ body,
 .glass-panel-glow {
   box-shadow: 0 0 40px rgba(59, 130, 246, 0.05);
 }
+
+/* Atmospheric Fog Overlay */
+@keyframes fogMoving {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.fog-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 400;
+  background: linear-gradient(135deg, rgba(220, 220, 220, 0.12) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(190, 190, 190, 0.16) 100%);
+  background-size: 200% 200%;
+  animation: fogMoving 30s ease-in-out infinite;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
