@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { Dashboard } from './components/Dashboard';
 import { MapDisplay } from './components/MapDisplay';
-import { geocodeAddress, fetchRoute, fetchNearestRoadData } from './services/navigation';
-import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps } from './utils/geo';
+import { geocodeAddress, fetchRoute, fetchNearestRoadData, fetchCurrentWeather } from './services/navigation';
+import type { WeatherData } from './services/navigation';
+import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance } from './utils/geo';
 
 function App() {
   // Navigation & route states
@@ -19,7 +20,6 @@ function App() {
   const [cumulativeDurations, setCumulativeDurations] = useState<number[]>([]);
 
   // Simulation status states
-  // 'idle', 'loading', 'ready', 'driving', 'paused', 'completed'
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'driving' | 'paused' | 'completed'>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -28,8 +28,11 @@ function App() {
   const [carBearing, setCarBearing] = useState<number>(0);
   const [lockCamera, setLockCamera] = useState<boolean>(true);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
-  const [currentSpeedKmh, setCurrentSpeedKmh] = useState<number>(0);
+  const [currentSpeedMph, setCurrentSpeedMph] = useState<number>(0);
   const [speedLimitMps, setSpeedLimitMps] = useState<number>(0);
+
+  // Live Weather state
+  const [weather, setWeather] = useState<WeatherData | null>(null);
 
   // Time-tracking states for background-resilient interpolation:
   const [virtualElapsedMs, setVirtualElapsedMs] = useState<number>(0);
@@ -39,6 +42,11 @@ function App() {
   const lastOverpassQueryTime = useRef<number>(0);
   const lastQuerySegmentIndex = useRef<number>(-1);
   const isFetchingOverpass = useRef<boolean>(false);
+
+  // Refs for tracking throttled Open-Meteo weather API queries:
+  const lastWeatherQueryTime = useRef<number>(0);
+  const lastWeatherPosition = useRef<[number, number] | null>(null);
+  const isFetchingWeather = useRef<boolean>(false);
 
   // Keep references for values accessed inside the requestAnimationFrame loop to prevent stale closures
   const stateRef = useRef({
@@ -156,9 +164,17 @@ function App() {
   const setStartTimeState = (time: number) => {
     setLastUpdateRealTime(time);
     setVirtualElapsedMs(0);
+    
+    // Reset Overpass refs
     lastOverpassQueryTime.current = 0;
     lastQuerySegmentIndex.current = -1;
     isFetchingOverpass.current = false;
+    
+    // Reset Weather refs
+    lastWeatherQueryTime.current = 0;
+    lastWeatherPosition.current = null;
+    isFetchingWeather.current = false;
+    setWeather(null);
   };
 
   // Pause simulation
@@ -174,7 +190,7 @@ function App() {
 
     setVirtualElapsedMs(totalVirtualElapsed);
     setLastUpdateRealTime(now);
-    setCurrentSpeedKmh(0);
+    setCurrentSpeedMph(0);
     setStatus('paused');
   };
 
@@ -182,7 +198,6 @@ function App() {
   const handleResume = () => {
     if (status !== 'paused') return;
     const now = Date.now();
-    // Shift checkpoint reference to current time to completely ignore paused interval
     setLastUpdateRealTime(now);
     setStatus('driving');
   };
@@ -218,13 +233,19 @@ function App() {
     setCarPosition(null);
     setCarBearing(0);
     setSpeedMultiplier(1);
-    setCurrentSpeedKmh(0);
+    setCurrentSpeedMph(0);
     setSpeedLimitMps(0);
+    setWeather(null);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
+    
     lastOverpassQueryTime.current = 0;
     lastQuerySegmentIndex.current = -1;
     isFetchingOverpass.current = false;
+
+    lastWeatherQueryTime.current = 0;
+    lastWeatherPosition.current = null;
+    isFetchingWeather.current = false;
     setError(null);
   };
 
@@ -248,7 +269,7 @@ function App() {
       // Check if drive is finished
       if (elapsedSeconds >= totalDurationSeconds) {
         setCarPosition(currentRef.route[currentRef.route.length - 1]);
-        setCurrentSpeedKmh(0);
+        setCurrentSpeedMph(0);
         setSpeedLimitMps(0);
         setVirtualElapsedMs(totalDurationSeconds * 1000);
         setStatus('completed');
@@ -268,11 +289,9 @@ function App() {
 
       // --- Overpass Speed Limit Fetch Logic with 3-second real-world throttle ---
       if (segmentIndex !== lastQuerySegmentIndex.current) {
-        // 1. Immediately apply realistic fallback to avoid HUD freeze
         const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
         setSpeedLimitMps(fallbackSpeed);
 
-        // 2. Query Overpass API if throttle has expired
         const nowReal = Date.now();
         if (nowReal - lastOverpassQueryTime.current > 3000 && !isFetchingOverpass.current) {
           lastOverpassQueryTime.current = nowReal;
@@ -294,13 +313,46 @@ function App() {
         }
       }
 
-      // Simulate a realistic driving speed: active road speed limit + minor wave noise
-      // If we fall back to 0 or speedLimitMps is zero, keep speed 0
+      // --- Open-Meteo Live Weather Integration with 5-minute / 20-mile throttle ---
+      const nowReal = Date.now();
+      let shouldFetchWeather = false;
+
+      if (lastWeatherQueryTime.current === 0 || !lastWeatherPosition.current) {
+        shouldFetchWeather = true;
+      } else {
+        const timeElapsedMs = nowReal - lastWeatherQueryTime.current;
+        const distanceMeters = getHaversineDistance(position, lastWeatherPosition.current);
+        const distanceMiles = distanceMeters * 0.000621371;
+
+        if (timeElapsedMs > 5 * 60 * 1000 || distanceMiles >= 20) {
+          shouldFetchWeather = true;
+        }
+      }
+
+      if (shouldFetchWeather && !isFetchingWeather.current) {
+        isFetchingWeather.current = true;
+        lastWeatherQueryTime.current = nowReal;
+        lastWeatherPosition.current = position;
+
+        fetchCurrentWeather(position[0], position[1])
+          .then((weatherData) => {
+            isFetchingWeather.current = false;
+            if (weatherData) {
+              setWeather(weatherData);
+            }
+          })
+          .catch((err) => {
+            isFetchingWeather.current = false;
+            console.error('Weather update failed:', err);
+          });
+      }
+
+      // Simulate a realistic driving speed: active road speed limit (in MPH) + minor wave noise
       const activeLimitMps = stateRef.current.speedLimitMps;
-      const baseSpeedKmh = activeLimitMps * 3.6;
-      const waveNoise = Math.sin(now / 1200) * 3 + Math.cos(now / 3200) * 1.5;
-      const simulatedSpeed = baseSpeedKmh > 0 ? Math.max(10, baseSpeedKmh + waveNoise) : 0;
-      setCurrentSpeedKmh(simulatedSpeed);
+      const baseSpeedMph = activeLimitMps * 2.236936;
+      const waveNoiseMph = Math.sin(now / 1200) * 2.0 + Math.cos(now / 3200) * 0.8;
+      const simulatedSpeedMph = baseSpeedMph > 0 ? Math.max(5, baseSpeedMph + waveNoiseMph) : 0;
+      setCurrentSpeedMph(simulatedSpeedMph);
 
       setVirtualElapsedMs(currentVirtualElapsed);
       setLastUpdateRealTime(now);
@@ -353,8 +405,9 @@ function App() {
         setSpeedMultiplier={handleSetSpeedMultiplier}
         lockCamera={lockCamera}
         setLockCamera={setLockCamera}
-        currentSpeedKmh={currentSpeedKmh}
+        currentSpeedMph={currentSpeedMph}
         speedLimitMps={speedLimitMps}
+        weather={weather}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Compass, Clock, Gauge, Route, Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import type { WeatherData } from '../services/navigation';
 
 interface DashboardProps {
   distance: number;          // in meters
@@ -11,8 +12,9 @@ interface DashboardProps {
   setSpeedMultiplier: (val: number) => void;
   lockCamera: boolean;
   setLockCamera: (val: boolean) => void;
-  currentSpeedKmh: number;   // calculated speed
+  currentSpeedMph: number;   // calculated speed in MPH
   speedLimitMps: number;     // speed limit in m/s
+  weather: WeatherData | null;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -25,17 +27,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setSpeedMultiplier,
   lockCamera,
   setLockCamera,
-  currentSpeedKmh,
+  currentSpeedMph,
   speedLimitMps,
+  weather,
 }) => {
-  // Round duration to nearest integer second
-  const durationSec = Math.round(duration);
-
-  // Convert distance to km & miles
+  // Convert distance to miles & km
   const distanceKm = distance / 1000;
   const distanceMiles = distanceKm * 0.621371;
 
   // Convert total duration to hours & minutes
+  const durationSec = Math.round(duration);
   const totalHours = Math.floor(durationSec / 3600);
   const totalMins = Math.floor((durationSec % 3600) / 60);
 
@@ -67,7 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Math.min(100, (elapsedSec / durationSec) * 100);
   }, [elapsedSec, durationSec]);
 
-  const speedMph = currentSpeedKmh * 0.621371;
+  // Speeds in metric & imperial
+  const currentSpeedKmh = currentSpeedMph * 1.609344;
 
   // Calculate speed limit values rounded to standard intervals
   const speedLimitMph = useMemo(() => {
@@ -94,6 +96,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
 
+        {/* Live Weather Integration Banner */}
+        {weather && (
+          <div className="mb-4 bg-slate-900/50 border border-slate-800/60 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl select-none" role="img" aria-label={weather.text}>
+                {weather.icon}
+              </span>
+              <div>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Local Weather</p>
+                <p className="text-xs font-semibold text-slate-200">{weather.text}</p>
+              </div>
+            </div>
+            <div className="bg-slate-950/40 px-2.5 py-1 rounded-lg border border-slate-800/40">
+              <span className="text-sm font-black text-white">{Math.round(weather.temp)}°F</span>
+            </div>
+          </div>
+        )}
+
         {/* 2x2 Grid Stats */}
         <div className="grid grid-cols-2 gap-4">
           {/* Distance */}
@@ -104,9 +124,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div>
               <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Distance</p>
               <p className="text-sm font-bold text-white leading-tight">
-                {distanceKm.toFixed(1)} km
+                {distanceMiles.toFixed(1)} mi
               </p>
-              <p className="text-[10px] text-slate-400">{distanceMiles.toFixed(1)} mi</p>
+              <p className="text-[10px] text-slate-400">{distanceKm.toFixed(1)} km</p>
             </div>
           </div>
 
@@ -119,10 +139,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="min-w-0">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Velocity</p>
                 <p className="text-sm font-bold text-white leading-tight truncate">
-                  {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
+                  {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
                 </p>
                 <p className="text-[10px] text-slate-400 truncate">
-                  {isDriving ? speedMph.toFixed(0) : '0'} mph
+                  {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
                 </p>
               </div>
             </div>

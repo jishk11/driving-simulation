@@ -166,3 +166,47 @@ export async function fetchNearestRoadData(
     return null;
   }
 }
+
+export interface WeatherData {
+  temp: number;
+  code: number;
+  text: string;
+  icon: string;
+}
+
+/**
+ * Fetches current weather from the free, public Open-Meteo API at the given coordinates.
+ */
+export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherData | null> {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&forecast_days=1`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Open-Meteo query failed with status: ${response.status}`);
+    }
+    const data = await response.json();
+    if (!data || !data.current) return null;
+
+    const temp = data.current.temperature_2m;
+    const code = data.current.weather_code;
+
+    // Convert code to text & icon
+    const { text, icon } = getWeatherInfo(code);
+
+    return { temp, code, text, icon };
+  } catch (error) {
+    console.error('Weather service error:', error);
+    return null;
+  }
+}
+
+function getWeatherInfo(code: number): { text: string; icon: string } {
+  if (code === 0) return { text: 'Clear Sky', icon: '☀️' };
+  if (code === 1 || code === 2 || code === 3) return { text: 'Partly Cloudy', icon: '⛅' };
+  if (code === 45 || code === 48) return { text: 'Foggy', icon: '🌫️' };
+  if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return { text: 'Drizzle', icon: '🌧️' };
+  if (code === 61 || code === 63 || code === 65 || code === 66 || code === 67 || code === 80 || code === 81 || code === 82) return { text: 'Rainy', icon: '🌧️' };
+  if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return { text: 'Snowy', icon: '❄️' };
+  if (code === 95 || code === 96 || code === 99) return { text: 'Thunderstorm', icon: '⛈️' };
+  return { text: 'Overcast', icon: '☁️' };
+}
