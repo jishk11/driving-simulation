@@ -78,6 +78,16 @@ export async function fetchRoute(
       return null;
     }
 
+    // Prevent snapping to different continents/oceans if route is impossible
+    if (data.waypoints) {
+      for (const wp of data.waypoints) {
+        if (wp.distance !== undefined && wp.distance > 100000) { // 100 km threshold
+          console.warn(`OSRM waypoint snapped too far: ${wp.distance}m`);
+          return null;
+        }
+      }
+    }
+
     const route = data.routes[0];
     const rawCoords = route.geometry.coordinates; // [ [lon, lat], [lon, lat], ... ]
     
