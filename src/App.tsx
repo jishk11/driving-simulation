@@ -390,10 +390,10 @@ function App() {
           lockCamera={lockCamera}
           isDarkMode={isDarkMode}
         />
+        {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
+        <WeatherOverlay weather={weather} />
       </div>
 
-      {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
-      <WeatherOverlay weather={weather} />
 
       {/* Glassmorphic Control panel (Top Left) */}
       <ControlPanel

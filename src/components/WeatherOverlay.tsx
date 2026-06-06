@@ -31,8 +31,8 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
     const maxParticles = weather?.text === 'Rainy' || weather?.text === 'Drizzle' ? 120 : 150;
 
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = canvas.clientWidth || window.innerWidth;
+      canvas.height = canvas.clientHeight || window.innerHeight;
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -149,7 +149,7 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
       {showCanvas && (
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 z-[400] pointer-events-none w-full h-full"
+          className="absolute inset-0 z-[500] pointer-events-none w-full h-full"
         />
       )}
       {showFog && <div className="fog-overlay" />}
