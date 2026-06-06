@@ -3,6 +3,7 @@ import type { WeatherData } from '../services/navigation';
 
 interface WeatherOverlayProps {
   weather: WeatherData | null;
+  isDarkMode?: boolean;
 }
 
 interface Particle {
@@ -16,7 +17,7 @@ interface Particle {
   wobbleSpeed?: number;
 }
 
-export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
+export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather, isDarkMode = true }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -79,13 +80,15 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
 
       if (type === 'Rainy' || type === 'Drizzle') {
         // Render Rain
-        ctx.strokeStyle = 'rgba(174, 194, 224, 0.4)';
-        ctx.lineWidth = 1.2;
-        
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           ctx.beginPath();
-          ctx.strokeStyle = `rgba(174, 194, 224, ${p.opacity})`;
+          // Darker rain for light day mode, lighter rain for dark night mode
+          const rainColor = isDarkMode 
+            ? `rgba(174, 194, 224, ${p.opacity})` 
+            : `rgba(45, 65, 95, ${p.opacity * 1.5})`;
+          ctx.strokeStyle = rainColor;
+          ctx.lineWidth = isDarkMode ? 1.2 : 1.5;
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(p.x + p.vx, p.y + p.sizeOrLength);
           ctx.stroke();
@@ -106,9 +109,20 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           ctx.beginPath();
-          ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+          // Bright white snow for dark night mode, gray-ish snow with outline for light day mode
+          const snowColor = isDarkMode
+            ? `rgba(255, 255, 255, ${p.opacity})`
+            : `rgba(220, 225, 235, ${p.opacity})`;
+          ctx.fillStyle = snowColor;
           ctx.arc(p.x, p.y, p.sizeOrLength, 0, Math.PI * 2);
           ctx.fill();
+
+          // Outline snow in day mode for visibility
+          if (!isDarkMode) {
+            ctx.strokeStyle = `rgba(100, 110, 130, ${p.opacity * 0.4})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
 
           // Apply sway
           if (p.wobble !== undefined && p.wobbleSpeed !== undefined) {
@@ -139,7 +153,7 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animId);
     };
-  }, [weather]);
+  }, [weather, isDarkMode]);
 
   const showCanvas = weather?.text === 'Rainy' || weather?.text === 'Drizzle' || weather?.text === 'Snowy';
   const showFog = weather?.text === 'Foggy' || weather?.text === 'Overcast';
@@ -152,7 +166,7 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ weather }) => {
           className="absolute inset-0 z-[500] pointer-events-none w-full h-full"
         />
       )}
-      {showFog && <div className="fog-overlay" />}
+      {showFog && <div className={`fog-overlay ${!isDarkMode ? 'fog-overlay-light' : ''}`} />}
     </>
   );
 };

@@ -104,3 +104,8 @@ body,
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
+
+.fog-overlay-light {
+  background: linear-gradient(135deg, rgba(140, 150, 160, 0.15) 0%, rgba(180, 190, 200, 0.08) 50%, rgba(130, 140, 150, 0.2) 100%) !important;
+}
+

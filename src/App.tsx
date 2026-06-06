@@ -412,7 +412,7 @@ function App() {
           isDarkMode={isDarkMode}
         />
         {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
-        <WeatherOverlay weather={weather} />
+        <WeatherOverlay weather={weather} isDarkMode={isDarkMode} />
       </div>
 
 
