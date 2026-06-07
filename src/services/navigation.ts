@@ -231,6 +231,11 @@ export async function fetchRoute(
         const segDist = durations[i] * speeds[i];
         durations[i] = segDist / spd;
       }
+      
+      // Ultimate safeguard to eradicate NaNs from leaking into the UI total
+      if (isNaN(durations[i]) || durations[i] < 0) durations[i] = 0;
+      if (isNaN(spd) || spd < 0) spd = 13.8;
+      
       speeds[i] = spd;
     }
 
@@ -239,7 +244,7 @@ export async function fetchRoute(
     return {
       coordinates,
       distance,
-      duration: finalDuration || duration,
+      duration: finalDuration > 0 ? finalDuration : duration,
       speeds,
       durations,
     };
