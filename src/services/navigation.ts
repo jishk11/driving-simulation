@@ -223,12 +223,11 @@ export interface OverpassRoadData {
   confident: boolean;
 }
 
-// Overpass API endpoints — mirrors first (more permissive rate limits), then primary
+// Overpass API endpoints — primary official server, then load-balanced alternatives
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.openstreetmap.fr/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
 ];
 
 // Geographic cache — reuse last successful Overpass result when car hasn't moved far
@@ -265,12 +264,17 @@ export async function fetchNearestRoadData(
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
-      const url = `${endpoint}?data=${encodedQuery}`;
-
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
 
-      const response = await fetch(url, { signal: controller.signal });
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `data=${encodedQuery}`,
+        signal: controller.signal
+      });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
@@ -326,7 +330,6 @@ export async function fetchNearestRoadData(
 
   // All endpoints exhausted
   console.error('All Overpass API endpoints failed');
-  overpassCache = { lat, lon, result: null, timestamp: Date.now() };
   return null;
 }
 
