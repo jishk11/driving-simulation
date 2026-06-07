@@ -468,13 +468,8 @@ function App() {
             : 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
         }`}>
           {currentStreetRef && (
-            <div className="flex items-center gap-1.5">
-              <div className="flex items-center justify-center bg-blue-600 text-white text-[11px] font-black px-2 py-0.5 rounded shadow-sm border border-blue-500/50">
-                {currentStreetRef.split(';')[0]}
-              </div>
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                {getCardinalDirection(carBearing)}
-              </span>
+            <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {getCardinalDirection(carBearing).toUpperCase()}
             </div>
           )}
           {!currentStreetRef && currentStreetName && (
