@@ -202,10 +202,12 @@ export async function fetchRoute(
       durations = Array(numSegments).fill(duration / numSegments);
     }
 
+    const finalDuration = durations.reduce((a, b) => a + b, 0);
+
     return {
       coordinates,
       distance,
-      duration,
+      duration: finalDuration || duration,
       speeds,
       durations,
     };
