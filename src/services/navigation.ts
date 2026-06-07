@@ -262,12 +262,16 @@ export async function fetchNearestRoadData(
   }
   const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
 
-  // Always try our serverless proxy first (avoids CORS on production)
-  // On localhost this will 404 and gracefully fall through to direct endpoints
+  // Try our Vercel edge rewrite proxy first (avoids CORS on production).
+  // The rewrite transparently forwards the POST to overpass.openstreetmap.fr.
+  // On localhost this will 404 and gracefully fall through to direct endpoints.
+  const proxyBody = new URLSearchParams();
+  proxyBody.append('data', query);
+
   const endpoints: { url: string; init: RequestInit }[] = [
     {
-      url: `/api/overpass?data=${encodeURIComponent(query)}`,
-      init: { method: 'GET' },
+      url: '/api/overpass',
+      init: { method: 'POST', body: proxyBody },
     },
   ];
 
