@@ -276,7 +276,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 isDarkMode ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-100 border-slate-200/80'
               }`}>
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out"
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
