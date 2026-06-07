@@ -223,8 +223,9 @@ export interface OverpassRoadData {
   confident: boolean;
 }
 
-// Overpass API endpoints — primary official server, then load-balanced alternatives
-const OVERPASS_ENDPOINTS = [
+// Overpass API endpoints — used as direct fallback on localhost only
+const OVERPASS_DIRECT_ENDPOINTS = [
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
   'https://z.overpass-api.de/api/interpreter',
@@ -243,7 +244,8 @@ const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
 
 /**
  * Queries the Overpass API for the tags of the way nearest to the given lat/lon.
- * Uses geographic caching and tries multiple endpoints with automatic failover.
+ * On production (Vercel), routes through /api/overpass serverless proxy to avoid CORS.
+ * On localhost, falls back to direct Overpass endpoints.
  */
 export async function fetchNearestRoadData(
   lat: number,
@@ -260,23 +262,39 @@ export async function fetchNearestRoadData(
   }
   const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Build the list of endpoints to try: proxy first on production, direct on localhost
+  const endpoints: { url: string; init: RequestInit }[] = [];
+
+  if (!isLocalhost) {
+    // Production: use our Vercel serverless proxy (no CORS issues)
+    endpoints.push({
+      url: `/api/overpass?data=${encodeURIComponent(query)}`,
+      init: { method: 'GET' },
+    });
+  }
+
+  // Fallback: direct Overpass endpoints
+  for (const ep of OVERPASS_DIRECT_ENDPOINTS) {
+    const bodyParams = new URLSearchParams();
+    bodyParams.append('data', query);
+    endpoints.push({
+      url: ep,
+      init: { method: 'POST', body: bodyParams },
+    });
+  }
+
+  for (const { url, init } of endpoints) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const bodyParams = new URLSearchParams();
-      bodyParams.append('data', query);
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: bodyParams,
-        signal: controller.signal
-      });
+      const response = await fetch(url, { ...init, signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn(`Overpass endpoint ${endpoint} returned ${response.status}, trying next...`);
+        console.warn(`Overpass endpoint ${url} returned ${response.status}, trying next...`);
         continue;
       }
 
@@ -321,7 +339,7 @@ export async function fetchNearestRoadData(
       overpassCache = { lat, lon, result, timestamp: Date.now() };
       return result;
     } catch (error) {
-      console.warn(`Overpass endpoint ${endpoint} failed:`, error);
+      console.warn(`Overpass endpoint ${url} failed:`, error);
       continue; // Try next endpoint
     }
   }
