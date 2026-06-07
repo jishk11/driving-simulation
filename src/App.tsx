@@ -435,11 +435,24 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
     : 0;
 
-  const getCardinalDirection = (bearing: number) => {
-    if (bearing >= 315 || bearing < 45) return 'North';
-    if (bearing >= 45 && bearing < 135) return 'East';
-    if (bearing >= 135 && bearing < 225) return 'South';
-    if (bearing >= 225 && bearing < 315) return 'West';
+  const getHighwayBound = (ref: string, bearing: number) => {
+    const match = ref.match(/\d+/);
+    if (match) {
+      const num = parseInt(match[0], 10);
+      const isEven = num % 2 === 0;
+      if (isEven) {
+        // Even routes run East/West in the US
+        return bearing >= 0 && bearing < 180 ? 'EAST' : 'WEST';
+      } else {
+        // Odd routes run North/South in the US
+        return bearing >= 270 || bearing < 90 ? 'NORTH' : 'SOUTH';
+      }
+    }
+    // Fallback based purely on compass if no number
+    if (bearing >= 315 || bearing < 45) return 'NORTH';
+    if (bearing >= 45 && bearing < 135) return 'EAST';
+    if (bearing >= 135 && bearing < 225) return 'SOUTH';
+    if (bearing >= 225 && bearing < 315) return 'WEST';
     return '';
   };
 
@@ -469,13 +482,8 @@ function App() {
         }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getCardinalDirection(carBearing).toUpperCase()}
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, carBearing)}
             </div>
-          )}
-          {!currentStreetRef && currentStreetName && (
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              {getCardinalDirection(carBearing)}
-            </span>
           )}
           {currentStreetName && (
             <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
