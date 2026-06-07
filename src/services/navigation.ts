@@ -1,4 +1,4 @@
-import { parseMaxspeedToMps } from '../utils/geo';
+import { parseMaxspeedToMps, getHaversineDistance } from '../utils/geo';
 
 export interface GeocodeResult {
   lat: number;
@@ -138,24 +138,68 @@ export async function fetchRoute(
     const distance = route.distance;
     const duration = route.duration;
     
-    let speeds: number[] = [];
-    let durations: number[] = [];
+    let annSpeeds: number[] = [];
+    let annDurations: number[] = [];
+    let annDistances: number[] = [];
     
     // Attempt to extract segment annotations
     if (route.legs && route.legs[0] && route.legs[0].annotation) {
       const ann = route.legs[0].annotation;
-      speeds = ann.speed || [];
-      durations = ann.duration || [];
+      annSpeeds = ann.speed || [];
+      annDurations = ann.duration || [];
+      annDistances = ann.distance || [];
     }
 
-    // Ensure durations and speeds match coordinates length - 1, otherwise fallback to uniform generation
     const numSegments = coordinates.length - 1;
-    if (numSegments > 0 && (speeds.length !== numSegments || durations.length !== numSegments)) {
-      const uniformSpeed = duration > 0 ? distance / duration : 13.8; // default 50 km/h in m/s
-      const uniformDuration = duration / numSegments;
-      
+    let speeds: number[];
+    let durations: number[];
+
+    if (numSegments <= 0) {
+      speeds = [];
+      durations = [];
+    } else if (annSpeeds.length === numSegments && annDurations.length === numSegments) {
+      // Exact match — use annotations directly
+      speeds = annSpeeds;
+      durations = annDurations;
+    } else if (annSpeeds.length > 0 && annDistances.length > 0) {
+      // Annotation count differs from polyline coordinate count.
+      // Redistribute annotation data across polyline segments using cumulative distance mapping.
+      const annCumDist: number[] = [0];
+      for (let i = 0; i < annDistances.length; i++) {
+        annCumDist.push(annCumDist[i] + annDistances[i]);
+      }
+      const totalAnnDist = annCumDist[annCumDist.length - 1];
+
+      const polyCumDist: number[] = [0];
+      for (let i = 0; i < numSegments; i++) {
+        polyCumDist.push(polyCumDist[i] + getHaversineDistance(coordinates[i], coordinates[i + 1]));
+      }
+      const totalPolyDist = polyCumDist[polyCumDist.length - 1];
+
+      speeds = new Array(numSegments);
+      durations = new Array(numSegments);
+      let annIdx = 0;
+
+      for (let i = 0; i < numSegments; i++) {
+        // Map this polyline segment's midpoint distance into annotation distance space
+        const midPolyDist = (polyCumDist[i] + polyCumDist[i + 1]) / 2;
+        const scaledDist = totalAnnDist > 0 ? (midPolyDist / totalPolyDist) * totalAnnDist : 0;
+
+        // Walk annIdx forward until we find the annotation segment containing scaledDist
+        while (annIdx < annDistances.length - 1 && annCumDist[annIdx + 1] < scaledDist) {
+          annIdx++;
+        }
+
+        const spd = annSpeeds[annIdx] || (duration > 0 ? distance / duration : 13.8);
+        const segDist = polyCumDist[i + 1] - polyCumDist[i];
+        speeds[i] = spd;
+        durations[i] = spd > 0 ? segDist / spd : 0;
+      }
+    } else {
+      // No annotation data at all — uniform fallback
+      const uniformSpeed = duration > 0 ? distance / duration : 13.8;
       speeds = Array(numSegments).fill(uniformSpeed);
-      durations = Array(numSegments).fill(uniformDuration);
+      durations = Array(numSegments).fill(duration / numSegments);
     }
 
     return {
@@ -185,7 +229,7 @@ export async function fetchNearestRoadData(
   osrmSpeedMps: number
 ): Promise<OverpassRoadData | null> {
   try {
-    const query = `[out:json][timeout:5];way(around:12,${lat},${lon})[highway];out tags;`;
+    const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway];out tags;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
     const response = await fetch(url, {
