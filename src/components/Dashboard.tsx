@@ -51,10 +51,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const distanceKm = distance / 1000;
   const distanceMiles = distanceKm * 0.621371;
 
-  // Convert total duration to hours & minutes
   const durationSec = Math.round(duration);
-  const totalHours = Math.floor(durationSec / 3600);
-  const totalMins = Math.floor((durationSec % 3600) / 60);
 
   // Time elapsed in seconds (true wall-clock)
   const elapsedSec = Math.floor(elapsedMs / 1000);
@@ -70,6 +67,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     : 0;
 
   const displayRemainingSec = Math.max(0, baseRemainingSec + etaFluctuation);
+
+  // Dynamic Total Time (True Elapsed + Estimated Remaining)
+  const estimatedTotalSec = elapsedSec + displayRemainingSec;
+  const estimatedTotalHours = Math.floor(estimatedTotalSec / 3600);
+  const estimatedTotalMins = Math.floor((estimatedTotalSec % 3600) / 60);
 
   // Formatting helpers
   const formatTime = (totalSeconds: number) => {
@@ -235,11 +237,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Total Time</p>
-                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                    {totalHours > 0 ? `${totalHours}h ` : ''}{totalMins}m
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>
+                    {isTimeWarped ? 'Sim. Total Time' : 'Total Time'}
                   </p>
-                  <p className={`text-[10px] ${subTextClass}`}>{formatTime(duration)}</p>
+                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                    {estimatedTotalHours > 0 ? `${estimatedTotalHours}h ` : ''}{estimatedTotalMins}m
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>{formatTime(estimatedTotalSec)}</p>
                 </div>
               </div>
 
