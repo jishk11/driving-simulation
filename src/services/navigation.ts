@@ -225,10 +225,10 @@ export interface OverpassRoadData {
 
 // Overpass API endpoints — mirrors first (more permissive rate limits), then primary
 const OVERPASS_ENDPOINTS = [
-  'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
 ];
 
 // Geographic cache — reuse last successful Overpass result when car hasn't moved far
@@ -239,7 +239,7 @@ let overpassCache: {
   timestamp: number;
 } | null = null;
 
-const CACHE_RADIUS_M = 150; // Reuse result within 150 meters
+const CACHE_RADIUS_M = 80; // Reuse result within 80 meters
 const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
 
 /**
@@ -268,7 +268,7 @@ export async function fetchNearestRoadData(
       const url = `${endpoint}?data=${encodedQuery}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
