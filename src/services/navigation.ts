@@ -179,7 +179,6 @@ export async function fetchRoute(
       speeds = new Array(numSegments);
       durations = new Array(numSegments);
       let annIdx = 0;
-      let currentTrafficFlow = 1.0;
 
       for (let i = 0; i < numSegments; i++) {
         // Map this polyline segment's midpoint distance into annotation distance space
@@ -191,26 +190,7 @@ export async function fetchRoute(
           annIdx++;
         }
 
-        let spd = annSpeeds[annIdx] || (duration > 0 ? distance / duration : 13.8);
-
-        // Highway Realism Fluctuation (smooth random walk between 1.0x and 1.15x)
-        // If the speed limit is roughly 54+ mph (24 m/s), consider it a highway
-        if (spd >= 24.0) {
-          // OSRM usually caps highway speeds very conservatively (around 58mph).
-          // Boost the baseline by 15% to align with typical US highway limits (65-70mph).
-          spd = spd * 1.15;
-
-          // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
-          currentTrafficFlow += (Math.random() - 0.5) * 0.04;
-          // Clamp between 1.0 (strict limit) and 1.15 (15% speeding)
-          currentTrafficFlow = Math.max(1.0, Math.min(1.15, currentTrafficFlow));
-          
-          spd = spd * currentTrafficFlow;
-        } else {
-          // Reset flow multiplier when off the highway
-          currentTrafficFlow = 1.0;
-        }
-
+        const spd = annSpeeds[annIdx] || (duration > 0 ? distance / duration : 13.8);
         const segDist = polyCumDist[i + 1] - polyCumDist[i];
         speeds[i] = spd;
         durations[i] = spd > 0 ? segDist / spd : 0;
@@ -220,6 +200,35 @@ export async function fetchRoute(
       const uniformSpeed = duration > 0 ? distance / duration : 13.8;
       speeds = Array(numSegments).fill(uniformSpeed);
       durations = Array(numSegments).fill(duration / numSegments);
+    }
+
+    // Pass 2: Apply Highway Realism Fluctuation to the computed speeds
+    let currentTrafficFlow = 1.0;
+    for (let i = 0; i < numSegments; i++) {
+      let spd = speeds[i];
+      if (spd >= 24.0) {
+        // OSRM usually caps highway speeds very conservatively (around 58mph).
+        // Boost the baseline by 15% to align with typical US highway limits (65-70mph).
+        spd = spd * 1.15;
+
+        // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
+        currentTrafficFlow += (Math.random() - 0.5) * 0.04;
+        // Clamp between 1.0 (strict limit) and 1.15 (15% speeding)
+        currentTrafficFlow = Math.max(1.0, Math.min(1.15, currentTrafficFlow));
+        
+        spd = spd * currentTrafficFlow;
+        
+        // Recalculate duration for this segment with the new boosted speed
+        if (durations[i] > 0) {
+          // duration = distance / speed. We know original duration and original speed.
+          // distance = original_duration * original_speed
+          const segDist = durations[i] * speeds[i];
+          durations[i] = segDist / spd;
+        }
+        speeds[i] = spd;
+      } else {
+        currentTrafficFlow = 1.0;
+      }
     }
 
     const finalDuration = durations.reduce((a, b) => a + b, 0);
