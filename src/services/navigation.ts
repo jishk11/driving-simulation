@@ -270,7 +270,7 @@ export async function fetchNearestRoadData(
 
   const endpoints: { url: string; init: RequestInit }[] = [
     {
-      url: '/api/overpass',
+      url: '/api/overpass_proxy',
       init: { method: 'POST', body: proxyBody },
     },
   ];
