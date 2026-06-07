@@ -55,6 +55,13 @@ function App() {
   const lastWeatherPosition = useRef<[number, number] | null>(null);
   const isFetchingWeather = useRef<boolean>(false);
 
+  // Live Traffic Simulation state (only active at 1x speed)
+  const liveTrafficRef = useRef({
+    multiplier: 1.0,
+    target: 1.0,
+    lastUpdate: 0,
+  });
+
   // Keep references for values accessed inside the requestAnimationFrame loop to prevent stale closures
   const stateRef = useRef({
     status,
@@ -273,7 +280,23 @@ function App() {
 
       const now = Date.now();
       const deltaReal = now - currentRef.lastUpdateRealTime;
-      const currentVirtualElapsed = currentRef.virtualElapsedMs + deltaReal * currentRef.speedMultiplier;
+
+      // Live 1x Traffic Dilation (drifts between 0.8x and 1.2x)
+      let currentLiveMultiplier = 1.0;
+      if (currentRef.speedMultiplier === 1) {
+        if (now - liveTrafficRef.current.lastUpdate > 10000) { // Pick new target every 10 real seconds
+          liveTrafficRef.current.target = 0.8 + Math.random() * 0.4;
+          liveTrafficRef.current.lastUpdate = now;
+        }
+        // Smoothly lerp towards target
+        liveTrafficRef.current.multiplier += (liveTrafficRef.current.target - liveTrafficRef.current.multiplier) * 0.01;
+        currentLiveMultiplier = liveTrafficRef.current.multiplier;
+      } else {
+        // Bypass at high speeds to protect predictable math
+        liveTrafficRef.current.multiplier = 1.0;
+      }
+
+      const currentVirtualElapsed = currentRef.virtualElapsedMs + deltaReal * currentRef.speedMultiplier * currentLiveMultiplier;
 
       const elapsedSeconds = currentVirtualElapsed / 1000;
       const totalDurationSeconds = currentRef.duration;
@@ -365,7 +388,8 @@ function App() {
 
       // Simulate a realistic driving speed: actual physical speed (in MPH) + minor wave noise
       // This accurately reflects any traffic flow multipliers applied in the routing engine
-      const baseSpeedMph = osrmSpeedMps * 2.236936;
+      // We also multiply by currentLiveMultiplier to ensure the HUD dynamically matches the 1x Time Dilation
+      const baseSpeedMph = osrmSpeedMps * currentLiveMultiplier * 2.236936;
       const waveNoiseMph = Math.sin(now / 4000) * 2.0 + Math.cos(now / 7000) * 0.8;
       const simulatedSpeedMph = baseSpeedMph > 0 ? Math.max(5, baseSpeedMph + waveNoiseMph) : 0;
       setCurrentSpeedMph(simulatedSpeedMph);
