@@ -99,6 +99,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     ? (isDarkMode ? 'text-amber-400/90 font-bold' : 'text-amber-600 font-bold')
     : statLabelClass;
 
+  const weatherIcon = useMemo(() => {
+    if (!weather) return '';
+    if (isDarkMode) {
+      if (weather.icon === '☀️') return '🌙';
+      if (weather.icon === '⛅') return '☁️🌙';
+    }
+    return weather.icon;
+  }, [weather, isDarkMode]);
+
   if (distance <= 0) return null;
 
   return (
@@ -123,7 +132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           }`}>
             <div className="flex items-center space-x-3">
               <span className="text-2xl select-none" role="img" aria-label={weather.text}>
-                {weather.icon}
+                {weatherIcon}
               </span>
               <div>
                 <p className={`text-[9px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Local Weather</p>
