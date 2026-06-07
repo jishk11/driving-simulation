@@ -252,6 +252,7 @@ export async function fetchRoute(
 export interface OverpassRoadData {
   maxspeed: string | null;
   highway: string | null;
+  name: string | null;
   confident: boolean;
 }
 
@@ -366,6 +367,7 @@ export async function fetchNearestRoadData(
       const result: OverpassRoadData = {
         maxspeed: selectedWay.tags.maxspeed || null,
         highway: selectedWay.tags.highway || null,
+        name: selectedWay.tags.name || null,
         confident: hasMaxspeed || hasHighway,
       };
       overpassCache = { lat, lon, result, timestamp: Date.now() };

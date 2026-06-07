@@ -4,6 +4,7 @@ import L from 'leaflet';
 
 interface MapDisplayProps {
   route: [number, number][];
+  currentSegmentIndex: number;
   carPosition: [number, number] | null;
   carBearing: number;
   lockCamera: boolean;
@@ -72,6 +73,7 @@ const MapController: React.FC<{
 
 export const MapDisplay: React.FC<MapDisplayProps> = ({
   route,
+  currentSegmentIndex,
   carPosition,
   carBearing,
   lockCamera,
@@ -138,16 +140,30 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
 
         {/* Draw the routing path */}
         {route.length > 0 && (
-          <Polyline
-            positions={route}
-            pathOptions={{
-              color: '#3b82f6',
-              weight: 5,
-              opacity: 0.75,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
+          <>
+            {/* Passed Route: Faded Gray/Slate */}
+            <Polyline
+              positions={route.slice(0, currentSegmentIndex + 1).concat(carPosition ? [carPosition] : [])}
+              pathOptions={{
+                color: '#64748b',
+                weight: 5,
+                opacity: 0.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            {/* Upcoming Route: Bright Blue */}
+            <Polyline
+              positions={(carPosition ? [carPosition] : []).concat(route.slice(currentSegmentIndex + 1))}
+              pathOptions={{
+                color: '#3b82f6',
+                weight: 5,
+                opacity: 0.75,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </>
         )}
 
         {/* Display start/origin pin */}

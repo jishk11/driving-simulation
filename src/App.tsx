@@ -33,6 +33,10 @@ function App() {
   const [speedLimitMps, setSpeedLimitMps] = useState<number>(0);
   const [isSpeedLimitFallback, setIsSpeedLimitFallback] = useState<boolean>(true);
 
+  // Visual tracking
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+  const [currentStreetName, setCurrentStreetName] = useState<string | null>(null);
+
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
@@ -239,6 +243,8 @@ function App() {
     setCurrentSpeedMph(0);
     setSpeedLimitMps(0);
     setIsSpeedLimitFallback(true);
+    setCurrentSegmentIndex(0);
+    setCurrentStreetName(null);
     setWeather(null);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
@@ -290,6 +296,7 @@ function App() {
 
       setCarPosition(position);
       setCarBearing(bearing);
+      setCurrentSegmentIndex(_segmentIndex);
 
       // --- Overpass Speed Limit Fetch Logic with 3-second real-world throttle ---
       // Query purely on a time basis. Never reset a good Overpass result to fallback between queries.
@@ -305,6 +312,7 @@ function App() {
               const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
               setSpeedLimitMps(parsedSpeed);
               setIsSpeedLimitFallback(!result.confident);
+              setCurrentStreetName(result.name || null);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
@@ -433,6 +441,7 @@ function App() {
       <div className="flex-1 w-full h-full relative z-0">
         <MapDisplay
           route={route}
+          currentSegmentIndex={currentSegmentIndex}
           carPosition={carPosition}
           carBearing={carBearing}
           lockCamera={lockCamera}
@@ -441,6 +450,19 @@ function App() {
         {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
         <WeatherOverlay weather={weather} isDarkMode={isDarkMode} />
       </div>
+
+      {/* Floating Street Name UI (Bottom Middle) */}
+      {(status === 'driving' || status === 'paused') && currentStreetName && (
+        <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${
+          isDarkMode 
+            ? 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50' 
+            : 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
+        }`}>
+          <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
+            {currentStreetName}
+          </span>
+        </div>
+      )}
 
       {/* Floating Speed Limit Sign in Top Right (like Google Maps/Apple Maps) */}
       {(status === 'driving' || status === 'paused') && speedLimitMph > 0 && (
