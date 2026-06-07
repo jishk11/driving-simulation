@@ -55,6 +55,45 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
 }
 
 /**
+ * Decodes an encoded OSRM/Google polyline string (5 decimal places precision)
+ * into a dense array of [latitude, longitude] coordinates.
+ */
+export function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0;
+  const len = encoded.length;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < len) {
+    let b;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+
+  return points;
+}
+
+/**
  * Uses the public OSRM API to get driving coordinates, distance, duration, and segment metadata.
  */
 export async function fetchRoute(
@@ -66,8 +105,8 @@ export async function fetchRoute(
     const originStr = `${origin[1]},${origin[0]}`;
     const destStr = `${destination[1]},${destination[0]}`;
     
-    // Request highest-resolution geometry (overview=full), GeoJSON format, and annotations for segment speeds
-    const url = `https://router.project-osrm.org/route/v1/driving/${originStr};${destStr}?geometries=geojson&overview=full&annotations=duration,distance,speed`;
+    // Request full overview as encoded polyline (geometries=polyline) and annotations for duration, distance, and speed
+    const url = `https://router.project-osrm.org/route/v1/driving/${originStr};${destStr}?geometries=polyline&overview=full&annotations=duration,distance,speed`;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -91,10 +130,10 @@ export async function fetchRoute(
     }
 
     const route = data.routes[0];
-    const rawCoords = route.geometry.coordinates; // [ [lon, lat], [lon, lat], ... ]
+    const encodedPolyline = route.geometry;
     
-    // Map OSRM [lon, lat] coordinates to Leaflet [lat, lon] coordinates
-    const coordinates = rawCoords.map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+    // Decode the polyline string into dense Leaflet [lat, lon] coordinates
+    const coordinates = decodePolyline(encodedPolyline);
 
     const distance = route.distance;
     const duration = route.duration;
@@ -109,9 +148,9 @@ export async function fetchRoute(
       durations = ann.duration || [];
     }
 
-    // Fallback: If annotations are missing, generate uniform segments based on coordinates
-    if (coordinates.length > 1 && (speeds.length === 0 || durations.length === 0)) {
-      const numSegments = coordinates.length - 1;
+    // Ensure durations and speeds match coordinates length - 1, otherwise fallback to uniform generation
+    const numSegments = coordinates.length - 1;
+    if (numSegments > 0 && (speeds.length !== numSegments || durations.length !== numSegments)) {
       const uniformSpeed = duration > 0 ? distance / duration : 13.8; // default 50 km/h in m/s
       const uniformDuration = duration / numSegments;
       
