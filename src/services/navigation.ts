@@ -221,22 +221,41 @@ export interface OverpassRoadData {
   confident: boolean;
 }
 
-// Overpass API endpoints — primary + mirrors for failover
+// Overpass API endpoints — mirrors first (more permissive rate limits), then primary
 const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
+// Geographic cache — reuse last successful Overpass result when car hasn't moved far
+let overpassCache: {
+  lat: number;
+  lon: number;
+  result: OverpassRoadData | null;
+  timestamp: number;
+} | null = null;
+
+const CACHE_RADIUS_M = 150; // Reuse result within 150 meters
+const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
+
 /**
  * Queries the Overpass API for the tags of the way nearest to the given lat/lon.
- * Tries multiple endpoints with automatic failover.
+ * Uses geographic caching and tries multiple endpoints with automatic failover.
  */
 export async function fetchNearestRoadData(
   lat: number,
   lon: number,
   osrmSpeedMps: number
 ): Promise<OverpassRoadData | null> {
+  // Check geographic cache first
+  if (overpassCache) {
+    const distFromCache = getHaversineDistance([lat, lon], [overpassCache.lat, overpassCache.lon]);
+    const age = Date.now() - overpassCache.timestamp;
+    if (distFromCache < CACHE_RADIUS_M && age < CACHE_TTL_MS) {
+      return overpassCache.result;
+    }
+  }
   // Filter to car-drivable road types only
   const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
   const encodedQuery = encodeURIComponent(query);
@@ -258,12 +277,16 @@ export async function fetchNearestRoadData(
 
       const data = await response.json();
       if (!data || !data.elements || data.elements.length === 0) {
-        // Valid response but no roads found — this is a real result, not an endpoint failure
+        // Valid response but no roads found — cache this as a real result
+        overpassCache = { lat, lon, result: null, timestamp: Date.now() };
         return null;
       }
 
       const ways = data.elements.filter((el: any) => el.type === 'way' && el.tags);
-      if (ways.length === 0) return null;
+      if (ways.length === 0) {
+        overpassCache = { lat, lon, result: null, timestamp: Date.now() };
+        return null;
+      }
 
       // Separate ways with an explicit maxspeed tag from those without
       const waysWithMaxspeed = ways.filter((w: any) => w.tags.maxspeed);
@@ -285,11 +308,13 @@ export async function fetchNearestRoadData(
       const hasMaxspeed = !!selectedWay.tags.maxspeed;
       const hasHighway = !!selectedWay.tags.highway;
 
-      return {
+      const result: OverpassRoadData = {
         maxspeed: selectedWay.tags.maxspeed || null,
         highway: selectedWay.tags.highway || null,
         confident: hasMaxspeed || hasHighway,
       };
+      overpassCache = { lat, lon, result, timestamp: Date.now() };
+      return result;
     } catch (error) {
       console.warn(`Overpass endpoint ${endpoint} failed:`, error);
       continue; // Try next endpoint
