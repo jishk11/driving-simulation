@@ -1,6 +1,6 @@
 # 1:1 Real-Time Driving Simulator
 
-A single-page web app that calculates real-world driving routes and animates a car traveling along that route in strictly 1:1 real-time. If you input a route that takes 8 hours in real life, the animation will take exactly 8 hours. 
+A simple web app that calculates real-world driving routes and animates a car traveling along that route in strictly 1:1 real-time. For example, if you input a route from Los Angeles, CA to San Francisco, CA that takes 6 hours in real life (on average), the animation will take exactly 6 hours. 
 
 Designed as a slow-TV or ambient dashboard experience.
 
