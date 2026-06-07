@@ -172,7 +172,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
                 required
               />
-              
+
               {/* Origin Dropdown Menu */}
               {showOriginDropdown && !isInputDisabled && (
                 <div className="absolute left-0 right-0 top-full mt-1.5 z-[1100] max-h-60 overflow-y-auto rounded-xl border border-slate-700/50 bg-slate-950/95 backdrop-blur-md shadow-2xl p-1.5 scrollbar-thin">
@@ -398,7 +398,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {status === 'completed' && (
           <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-center rounded-xl animate-bounce">
-            <p className="font-semibold text-sm">Destination Reached! 🎉</p>
+            <p className="font-semibold text-sm">Destination Reached!</p>
             <p className="text-xs text-emerald-400/80 mt-0.5">Your 1:1 real-time journey has finished.</p>
           </div>
         )}

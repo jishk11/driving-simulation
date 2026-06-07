@@ -36,7 +36,6 @@ function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
   // Time-tracking states for background-resilient interpolation:
-  const [simStartTime, setSimStartTime] = useState<number>(0);
   const [virtualElapsedMs, setVirtualElapsedMs] = useState<number>(0);
   const [lastUpdateRealTime, setLastUpdateRealTime] = useState<number>(0);
 
@@ -159,7 +158,6 @@ function App() {
   // Start driving simulation
   const handleStartDrive = () => {
     const now = Date.now();
-    setSimStartTime(now);
     setStartTimeState(now);
     setStatus('driving');
   };
@@ -239,7 +237,6 @@ function App() {
     setCurrentSpeedMph(0);
     setSpeedLimitMps(0);
     setWeather(null);
-    setSimStartTime(0);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
     
@@ -371,11 +368,9 @@ function App() {
     };
   }, [status]);
 
-  // Calculate Dynamic Day/Night state based on car's longitude solar time
-  const virtualTime = (status === 'driving' || status === 'paused' || status === 'completed')
-    ? simStartTime + virtualElapsedMs
-    : Date.now();
-  const virtualDate = new Date(virtualTime);
+  // Calculate Dynamic Day/Night state based on real-world local time at car's longitude
+  const realTime = Date.now();
+  const realDate = new Date(realTime);
   
   // Use current car position, staged route origin, or default center of the US
   let activeLongitude = -95.7129; // default center of US
@@ -394,10 +389,11 @@ function App() {
   const baseOffset = Math.round(activeLongitude / 15);
   const offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
   
-  // Calculate local hour at coordinate based on UTC simulated time
-  const utcHours = virtualDate.getUTCHours();
-  const virtualHour = (utcHours + offsetHours + 24) % 24;
-  const isDarkMode = virtualHour < 6 || virtualHour >= 20;
+  // Calculate local hour at coordinate based on UTC real time
+  const utcHours = realDate.getUTCHours();
+  const localRealHour = (utcHours + offsetHours + 24) % 24;
+  const isDarkMode = localRealHour < 6 || localRealHour >= 20;
+
 
 
   return (

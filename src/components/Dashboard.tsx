@@ -94,6 +94,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const statValClass = isDarkMode ? 'text-white' : 'text-slate-900';
   const subTextClass = isDarkMode ? 'text-slate-400' : 'text-slate-500';
 
+  const isTimeWarped = speedMultiplier > 1;
+  const etaLabelClass = isTimeWarped
+    ? (isDarkMode ? 'text-amber-400/90 font-bold' : 'text-amber-600 font-bold')
+    : statLabelClass;
+
   if (distance <= 0) return null;
 
   return (
@@ -199,7 +204,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Compass className="w-4 h-4" />
             </div>
             <div>
-              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>ETA</p>
+              <p className={`text-[10px] uppercase tracking-wider font-semibold ${etaLabelClass}`}>
+                {isTimeWarped ? 'Simulated ETA' : 'ETA'}
+              </p>
               <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
                 {etaString}
               </p>
@@ -226,7 +233,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <div className={`flex justify-between text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
             <span>Elapsed: {formatTime(elapsedSec)}</span>
-            <span>Remaining: {formatTime(remainingSec)}</span>
+            <span className={isTimeWarped ? (isDarkMode ? 'text-amber-400/90 font-semibold' : 'text-amber-600 font-semibold') : ''}>
+              {isTimeWarped ? 'Sim. Remaining: ' : 'Remaining: '}{formatTime(remainingSec)}
+            </span>
           </div>
         </div>
 
