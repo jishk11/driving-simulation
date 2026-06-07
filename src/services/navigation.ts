@@ -294,7 +294,7 @@ export async function fetchNearestRoadData(
       return overpassCache.result;
     }
   }
-  const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
+  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
 
   // Try our Vercel edge rewrite proxy first (avoids CORS on production).
   // The rewrite transparently forwards the POST to overpass.openstreetmap.fr.
@@ -365,11 +365,25 @@ export async function fetchNearestRoadData(
       const hasMaxspeed = !!selectedWay.tags.maxspeed;
       const hasHighway = !!selectedWay.tags.highway;
 
+      // Robust Ref Extraction: If the selected sub-segment (like an HOV lane) is missing the 'ref' tag,
+      // scan all nearby ways to find the parent highway's ref.
+      let extractedRef = selectedWay.tags.ref || null;
+      if (!extractedRef) {
+        if (selectedWay.tags.name) {
+          const match = ways.find((w: any) => w.tags.name === selectedWay.tags.name && w.tags.ref);
+          if (match) extractedRef = match.tags.ref;
+        }
+        if (!extractedRef && (selectedWay.tags.highway === 'motorway' || selectedWay.tags.highway === 'trunk')) {
+          const match = ways.find((w: any) => (w.tags.highway === 'motorway' || w.tags.highway === 'trunk') && w.tags.ref);
+          if (match) extractedRef = match.tags.ref;
+        }
+      }
+
       const result: OverpassRoadData = {
         maxspeed: selectedWay.tags.maxspeed || null,
         highway: selectedWay.tags.highway || null,
         name: selectedWay.tags.name || null,
-        ref: selectedWay.tags.ref || null,
+        ref: extractedRef,
         confident: hasMaxspeed || hasHighway,
       };
       overpassCache = { lat, lon, result, timestamp: Date.now() };
