@@ -207,17 +207,17 @@ export async function fetchRoute(
     for (let i = 0; i < numSegments; i++) {
       let spd = speeds[i];
       
-      // OSRM speeds are systematically ~20-25% lower than actual US posted limits globally.
-      // Apply a universal 25% baseline boost to all segments to match realistic driving.
-      spd = spd * 1.25;
+      // OSRM speeds are systematically ~10-15% lower than actual US posted limits globally.
+      // Apply a universal 12% baseline boost to all segments to match realistic driving.
+      spd = spd * 1.12;
 
       // Highway Realism Fluctuation (smooth random walk)
       // If the boosted speed is roughly 54+ mph (24 m/s), consider it a highway
       if (spd >= 24.0) {
         // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
         currentTrafficFlow += (Math.random() - 0.5) * 0.04;
-        // Clamp between 0.95 (slight traffic) and 1.15 (very fast flow)
-        currentTrafficFlow = Math.max(0.95, Math.min(1.15, currentTrafficFlow));
+        // Clamp between 0.70 (heavy slow traffic) and 1.05 (slightly speeding/open road)
+        currentTrafficFlow = Math.max(0.70, Math.min(1.05, currentTrafficFlow));
         
         spd = spd * currentTrafficFlow;
       } else {
