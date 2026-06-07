@@ -262,18 +262,14 @@ export async function fetchNearestRoadData(
   }
   const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
 
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  // Build the list of endpoints to try: proxy first on production, direct on localhost
-  const endpoints: { url: string; init: RequestInit }[] = [];
-
-  if (!isLocalhost) {
-    // Production: use our Vercel serverless proxy (no CORS issues)
-    endpoints.push({
+  // Always try our serverless proxy first (avoids CORS on production)
+  // On localhost this will 404 and gracefully fall through to direct endpoints
+  const endpoints: { url: string; init: RequestInit }[] = [
+    {
       url: `/api/overpass?data=${encodeURIComponent(query)}`,
       init: { method: 'GET' },
-    });
-  }
+    },
+  ];
 
   // Fallback: direct Overpass endpoints
   for (const ep of OVERPASS_DIRECT_ENDPOINTS) {

@@ -2,8 +2,7 @@
  * Vercel Serverless Function — Overpass API Proxy
  *
  * Proxies Overpass QL queries server-side so the browser never hits
- * CORS issues, 403s, or 406s.  Tries multiple upstream endpoints
- * with automatic failover.
+ * CORS issues, 403s, or 406s.
  */
 
 const ENDPOINTS = [
@@ -14,8 +13,11 @@ const ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
+export const config = {
+  maxDuration: 15,
+};
+
 export default async function handler(req, res) {
-  // Allow CORS for the Vercel preview / production domains
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -24,11 +26,15 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Accept the query from either query-string (?data=...) or POST body
-  const query =
-    req.query?.data ||
-    req.body?.data ||
-    (typeof req.body === 'string' ? req.body : null);
+  // Accept the query from query-string or POST body
+  let query = req.query?.data;
+  if (!query && req.body) {
+    if (typeof req.body === 'string') {
+      query = req.body;
+    } else if (req.body.data) {
+      query = req.body.data;
+    }
+  }
 
   if (!query) {
     return res.status(400).json({ error: 'Missing "data" parameter' });
@@ -39,7 +45,7 @@ export default async function handler(req, res) {
   for (const endpoint of ENDPOINTS) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 6000);
 
       const upstream = await fetch(endpoint, {
         method: 'POST',
