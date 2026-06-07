@@ -142,17 +142,22 @@ export function parseMaxspeedToMps(
   if (maxspeed) {
     const clean = maxspeed.toLowerCase().trim();
 
-    // Check if it specifies mph
-    if (clean.includes('mph')) {
-      const val = parseInt(clean.replace(/[^\d]/g, ''), 10);
-      if (!isNaN(val) && val > 0) {
+    // Check if it explicitly specifies units
+    const isMph = clean.includes('mph');
+    const isKmh = clean.includes('km/h') || clean.includes('kmh') || clean.includes('km');
+
+    // Strip out all letters, spaces, and non-numeric characters (leaving only digits)
+    const digitsOnly = clean.replace(/[^\d]/g, '');
+    const val = parseInt(digitsOnly, 10);
+
+    if (!isNaN(val) && val > 0) {
+      if (isMph) {
         return val * 0.44704; // convert mph to m/s
       }
-    }
+      if (isKmh) {
+        return val / 3.6; // convert km/h to m/s
+      }
 
-    // Check if it's just a number
-    const val = parseInt(clean, 10);
-    if (!isNaN(val) && val > 0) {
       // Adaptive unit detection: compare OSRM speed to both options (km/h vs mph)
       const optionKmh = val / 3.6;
       const optionMph = val * 0.44704;

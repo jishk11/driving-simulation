@@ -143,7 +143,7 @@ export async function fetchNearestRoadData(
   lon: number
 ): Promise<OverpassRoadData | null> {
   try {
-    const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway];out tags;`;
+    const query = `[out:json][timeout:5];way(around:30,${lat},${lon})[highway];out tags;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
     const response = await fetch(url, {

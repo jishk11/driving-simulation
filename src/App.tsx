@@ -31,6 +31,7 @@ function App() {
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
   const [currentSpeedMph, setCurrentSpeedMph] = useState<number>(0);
   const [speedLimitMps, setSpeedLimitMps] = useState<number>(0);
+  const [isSpeedLimitFallback, setIsSpeedLimitFallback] = useState<boolean>(true);
 
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -138,6 +139,7 @@ function App() {
       
       const initialFallbackSpeed = parseMaxspeedToMps(null, null, routeData.speeds[0] || 0);
       setSpeedLimitMps(initialFallbackSpeed);
+      setIsSpeedLimitFallback(true);
       
       if (routeData.coordinates.length > 1) {
         const nextCoord = routeData.coordinates[1];
@@ -236,6 +238,7 @@ function App() {
     setSpeedMultiplier(1);
     setCurrentSpeedMph(0);
     setSpeedLimitMps(0);
+    setIsSpeedLimitFallback(true);
     setWeather(null);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
@@ -292,6 +295,7 @@ function App() {
       if (segmentIndex !== lastQuerySegmentIndex.current) {
         const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
         setSpeedLimitMps(fallbackSpeed);
+        setIsSpeedLimitFallback(true);
 
         const nowReal = Date.now();
         if (nowReal - lastOverpassQueryTime.current > 3000 && !isFetchingOverpass.current) {
@@ -305,10 +309,14 @@ function App() {
               if (result) {
                 const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
                 setSpeedLimitMps(parsedSpeed);
+                setIsSpeedLimitFallback(!result.maxspeed);
+              } else {
+                setIsSpeedLimitFallback(true);
               }
             })
             .catch((err) => {
               isFetchingOverpass.current = false;
+              setIsSpeedLimitFallback(true);
               console.error('Overpass background fetch failed:', err);
             });
         }
@@ -442,11 +450,19 @@ function App() {
       {(status === 'driving' || status === 'paused') && speedLimitMph > 0 && (
         <div 
           className="absolute top-4 right-4 z-[1000] w-14 h-18 bg-white border-2 border-black rounded-lg shadow-xl flex flex-col items-center justify-center p-1 select-none font-sans text-black leading-none animate-pulse-slow"
-          title={`Speed Limit: ${speedLimitMph} mph`}
+          title={`Speed Limit: ${speedLimitMph} mph${isSpeedLimitFallback ? ' (Estimated Fallback)' : ''}`}
         >
           <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>SPEED</span>
           <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>LIMIT</span>
-          <span className="text-xl font-black mt-1 tracking-tight" style={{ fontSize: '20px', fontWeight: 900 }}>{speedLimitMph}</span>
+          <span 
+            className={`text-xl font-black mt-1 tracking-tight flex items-start ${
+              isSpeedLimitFallback ? 'text-amber-600' : 'text-black'
+            }`} 
+            style={{ fontSize: '20px', fontWeight: 900 }}
+          >
+            {speedLimitMph}
+            {isSpeedLimitFallback && <span className="text-[10px] -mt-1 ml-0.5 font-bold text-amber-600">*</span>}
+          </span>
         </div>
       )}
 
