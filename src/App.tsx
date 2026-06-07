@@ -471,20 +471,9 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
     : 0;
 
-  const getHighwayBound = (ref: string, bearing: number) => {
-    const match = ref.match(/\d+/);
-    if (match) {
-      const num = parseInt(match[0], 10);
-      const isEven = num % 2 === 0;
-      if (isEven) {
-        // Even routes run East/West in the US
-        return bearing >= 0 && bearing < 180 ? 'EAST' : 'WEST';
-      } else {
-        // Odd routes run North/South in the US
-        return bearing >= 270 || bearing < 90 ? 'NORTH' : 'SOUTH';
-      }
-    }
-    // Fallback based purely on compass if no number
+  const getHighwayBound = (_ref: string, bearing: number) => {
+    // Determine bounds purely on the car's physical compass bearing.
+    // This is globally accurate and avoids hardcoding US Interstate odd/even conventions.
     if (bearing >= 315 || bearing < 45) return 'NORTH';
     if (bearing >= 45 && bearing < 135) return 'EAST';
     if (bearing >= 135 && bearing < 225) return 'SOUTH';
