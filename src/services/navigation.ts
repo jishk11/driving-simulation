@@ -66,8 +66,8 @@ export async function fetchRoute(
     const originStr = `${origin[1]},${origin[0]}`;
     const destStr = `${destination[1]},${destination[0]}`;
     
-    // Request full overview, GeoJSON format, and annotations for durations, distances, and speeds
-    const url = `https://router.project-osrm.org/route/v1/driving/${originStr};${destStr}?overview=full&geometries=geojson&annotations=duration,distance,speed`;
+    // Request highest-resolution geometry (overview=full), GeoJSON format, and annotations for segment speeds
+    const url = `https://router.project-osrm.org/route/v1/driving/${originStr};${destStr}?geometries=geojson&overview=full&annotations=duration,distance,speed`;
 
     const response = await fetch(url);
     if (!response.ok) {
