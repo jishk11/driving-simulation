@@ -13,7 +13,6 @@ interface DashboardProps {
   lockCamera: boolean;
   setLockCamera: (val: boolean) => void;
   currentSpeedMph: number;   // calculated speed in MPH
-  speedLimitMps: number;     // speed limit in m/s
   weather: WeatherData | null;
   isDarkMode: boolean;
 }
@@ -29,7 +28,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   lockCamera,
   setLockCamera,
   currentSpeedMph,
-  speedLimitMps,
   weather,
   isDarkMode,
 }) => {
@@ -73,13 +71,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Speeds in metric
   const currentSpeedKmh = currentSpeedMph * 1.609344;
 
-  // Calculate speed limit values rounded to standard intervals
-  const speedLimitMph = useMemo(() => {
-    if (speedLimitMps <= 0) return 0;
-    const rawMph = speedLimitMps * 2.236936;
-    // Round to nearest 5 mph
-    return Math.max(15, Math.round(rawMph / 5) * 5);
-  }, [speedLimitMps]);
+
 
   // Style constants based on Day/Night (isDarkMode)
   const hudContainerClass = isDarkMode
@@ -164,33 +156,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Speed */}
-          <div className={`border rounded-xl p-3 flex items-center justify-between transition-all duration-500 ${gridItemClass}`}>
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className={`p-2 rounded-lg text-amber-500 flex-shrink-0 ${isDarkMode ? 'bg-amber-500/10' : 'bg-amber-500/15'}`}>
-                <Gauge className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
-                <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
-                  {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
-                </p>
-                <p className={`text-[10px] truncate ${subTextClass}`}>
-                  {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
-                </p>
-              </div>
+          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+            <div className={`p-2 rounded-lg text-amber-500 flex-shrink-0 ${isDarkMode ? 'bg-amber-500/10' : 'bg-amber-500/15'}`}>
+              <Gauge className="w-4 h-4" />
             </div>
-
-            {/* US Style Speed Limit Sign */}
-            {isDriving && speedLimitMph > 0 && (
-              <div 
-                className="flex-shrink-0 w-9 h-12 bg-white border-[1.5px] border-black rounded shadow-[0_2px_4px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center p-0.5 select-none font-sans text-black leading-none animate-pulse-slow"
-                title={`Speed Limit: ${speedLimitMph} mph`}
-              >
-                <span className="text-[5px] font-black tracking-tight" style={{ fontSize: '5px' }}>SPEED</span>
-                <span className="text-[5px] font-black tracking-tight" style={{ fontSize: '5px' }}>LIMIT</span>
-                <span className="text-sm font-black mt-0.5 tracking-tight" style={{ fontSize: '13px', fontWeight: 900 }}>{speedLimitMph}</span>
-              </div>
-            )}
+            <div>
+              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
+              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
+              </p>
+              <p className={`text-[10px] ${subTextClass}`}>
+                {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
+              </p>
+            </div>
           </div>
 
           {/* Duration */}

@@ -9,8 +9,8 @@ import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps
 
 function App() {
   // Navigation & route states
-  const [originInput, setOriginInput] = useState('San Diego, CA');
-  const [destinationInput, setDestinationInput] = useState('San Francisco, CA');
+  const [originInput, setOriginInput] = useState('');
+  const [destinationInput, setDestinationInput] = useState('');
   const [route, setRoute] = useState<[number, number][]>([]);
   const [distance, setDistance] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
@@ -404,6 +404,10 @@ function App() {
   }
   const isDarkMode = calculatedDarkMode;
 
+  const speedLimitMph = speedLimitMps > 0 
+    ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
+    : 0;
+
 
 
 
@@ -422,6 +426,17 @@ function App() {
         <WeatherOverlay weather={weather} isDarkMode={isDarkMode} />
       </div>
 
+      {/* Floating Speed Limit Sign in Top Right (like Google Maps/Apple Maps) */}
+      {(status === 'driving' || status === 'paused') && speedLimitMph > 0 && (
+        <div 
+          className="absolute top-4 right-4 z-[1000] w-14 h-18 bg-white border-2 border-black rounded-lg shadow-xl flex flex-col items-center justify-center p-1 select-none font-sans text-black leading-none animate-pulse-slow"
+          title={`Speed Limit: ${speedLimitMph} mph`}
+        >
+          <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>SPEED</span>
+          <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>LIMIT</span>
+          <span className="text-xl font-black mt-1 tracking-tight" style={{ fontSize: '20px', fontWeight: 900 }}>{speedLimitMph}</span>
+        </div>
+      )}
 
       {/* Glassmorphic Control panel (Top Left) */}
       <ControlPanel
@@ -450,7 +465,6 @@ function App() {
         lockCamera={lockCamera}
         setLockCamera={setLockCamera}
         currentSpeedMph={currentSpeedMph}
-        speedLimitMps={speedLimitMps}
         weather={weather}
         isDarkMode={isDarkMode}
       />
