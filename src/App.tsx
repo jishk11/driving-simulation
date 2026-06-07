@@ -56,6 +56,10 @@ function App() {
   const lastWeatherPosition = useRef<[number, number] | null>(null);
   const isFetchingWeather = useRef<boolean>(false);
 
+  // Refs for locking the cardinal bound of the current highway to prevent jitter
+  const lockedHighwayBoundRef = useRef<string>('');
+  const lastSeenRefRef = useRef<string | null>(null);
+
   // Live Traffic Simulation state (only active at 1x speed)
   const liveTrafficRef = useRef({
     multiplier: 1.0,
@@ -472,13 +476,19 @@ function App() {
     : 0;
 
   const getHighwayBound = (_ref: string, bearing: number) => {
-    // Determine bounds purely on the car's physical compass bearing.
-    // This is globally accurate and avoids hardcoding US Interstate odd/even conventions.
-    if (bearing >= 315 || bearing < 45) return 'NORTH';
-    if (bearing >= 45 && bearing < 135) return 'EAST';
-    if (bearing >= 135 && bearing < 225) return 'SOUTH';
-    if (bearing >= 225 && bearing < 315) return 'WEST';
-    return '';
+    // Lock the cardinal bound the first time we enter a new highway.
+    // This prevents the highway name from fluctuating (e.g. from NORTH to WEST)
+    // if the road physically curves, while remaining globally accurate.
+    if (_ref !== lastSeenRefRef.current) {
+      lastSeenRefRef.current = _ref;
+      let bound = '';
+      if (bearing >= 315 || bearing < 45) bound = 'NORTH';
+      else if (bearing >= 45 && bearing < 135) bound = 'EAST';
+      else if (bearing >= 135 && bearing < 225) bound = 'SOUTH';
+      else if (bearing >= 225 && bearing < 315) bound = 'WEST';
+      lockedHighwayBoundRef.current = bound;
+    }
+    return lockedHighwayBoundRef.current;
   };
 
 
