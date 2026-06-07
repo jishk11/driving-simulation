@@ -208,8 +208,8 @@ export async function fetchRoute(
       let spd = speeds[i];
       
       // OSRM speeds are systematically ~10-15% lower than actual US posted limits globally.
-      // Apply a universal 12% baseline boost to all segments to match realistic driving.
-      spd = spd * 1.12;
+      // Apply a universal 18% baseline boost to all segments to match realistic driving.
+      spd = spd * 1.18;
 
       // Highway Realism Fluctuation (smooth random walk)
       // If the boosted speed is roughly 54+ mph (24 m/s), consider it a highway
