@@ -202,33 +202,36 @@ export async function fetchRoute(
       durations = Array(numSegments).fill(duration / numSegments);
     }
 
-    // Pass 2: Apply Highway Realism Fluctuation to the computed speeds
+    // Pass 2: Apply Realism Adjustments to the computed speeds
     let currentTrafficFlow = 1.0;
     for (let i = 0; i < numSegments; i++) {
       let spd = speeds[i];
-      if (spd >= 24.0) {
-        // OSRM usually caps highway speeds very conservatively (around 58mph).
-        // Boost the baseline by 15% to align with typical US highway limits (65-70mph).
-        spd = spd * 1.15;
+      
+      // OSRM speeds are systematically ~20-25% lower than actual US posted limits globally.
+      // Apply a universal 25% baseline boost to all segments to match realistic driving.
+      spd = spd * 1.25;
 
+      // Highway Realism Fluctuation (smooth random walk)
+      // If the boosted speed is roughly 54+ mph (24 m/s), consider it a highway
+      if (spd >= 24.0) {
         // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
         currentTrafficFlow += (Math.random() - 0.5) * 0.04;
-        // Clamp between 1.0 (strict limit) and 1.15 (15% speeding)
-        currentTrafficFlow = Math.max(1.0, Math.min(1.15, currentTrafficFlow));
+        // Clamp between 0.95 (slight traffic) and 1.10 (fast flow)
+        currentTrafficFlow = Math.max(0.95, Math.min(1.10, currentTrafficFlow));
         
         spd = spd * currentTrafficFlow;
-        
-        // Recalculate duration for this segment with the new boosted speed
-        if (durations[i] > 0) {
-          // duration = distance / speed. We know original duration and original speed.
-          // distance = original_duration * original_speed
-          const segDist = durations[i] * speeds[i];
-          durations[i] = segDist / spd;
-        }
-        speeds[i] = spd;
       } else {
+        // Reset flow multiplier when off the highway
         currentTrafficFlow = 1.0;
       }
+      
+      // Recalculate duration for this segment with the new boosted speed
+      if (durations[i] > 0) {
+        // distance = original_duration * original_speed
+        const segDist = durations[i] * speeds[i];
+        durations[i] = segDist / spd;
+      }
+      speeds[i] = spd;
     }
 
     const finalDuration = durations.reduce((a, b) => a + b, 0);
