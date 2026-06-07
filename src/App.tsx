@@ -281,7 +281,7 @@ function App() {
       }
 
       // Perform interpolation along the polyline path by travel time
-      const { position, bearing, segmentIndex, speedMps: osrmSpeedMps } = interpolatePositionByTime(
+      const { position, bearing, segmentIndex: _segmentIndex, speedMps: osrmSpeedMps } = interpolatePositionByTime(
         currentRef.route,
         currentRef.cumulativeDurations,
         elapsedSeconds,
@@ -292,34 +292,30 @@ function App() {
       setCarBearing(bearing);
 
       // --- Overpass Speed Limit Fetch Logic with 3-second real-world throttle ---
-      if (segmentIndex !== lastQuerySegmentIndex.current) {
-        const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
-        setSpeedLimitMps(fallbackSpeed);
-        setIsSpeedLimitFallback(true);
+      // Query purely on a time basis. Never reset a good Overpass result to fallback between queries.
+      const nowOverpass = Date.now();
+      if (nowOverpass - lastOverpassQueryTime.current > 3000 && !isFetchingOverpass.current) {
+        lastOverpassQueryTime.current = nowOverpass;
+        isFetchingOverpass.current = true;
 
-        const nowReal = Date.now();
-        if (nowReal - lastOverpassQueryTime.current > 3000 && !isFetchingOverpass.current) {
-          lastOverpassQueryTime.current = nowReal;
-          lastQuerySegmentIndex.current = segmentIndex;
-          isFetchingOverpass.current = true;
-
-          fetchNearestRoadData(position[0], position[1], osrmSpeedMps)
-            .then((result) => {
-              isFetchingOverpass.current = false;
-              if (result) {
-                const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
-                setSpeedLimitMps(parsedSpeed);
-                setIsSpeedLimitFallback(!result.maxspeed);
-              } else {
-                setIsSpeedLimitFallback(true);
-              }
-            })
-            .catch((err) => {
-              isFetchingOverpass.current = false;
+        fetchNearestRoadData(position[0], position[1], osrmSpeedMps)
+          .then((result) => {
+            isFetchingOverpass.current = false;
+            if (result) {
+              const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
+              setSpeedLimitMps(parsedSpeed);
+              setIsSpeedLimitFallback(!result.maxspeed);
+            } else {
+              // No road data found — use heuristic fallback
+              const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
+              setSpeedLimitMps(fallbackSpeed);
               setIsSpeedLimitFallback(true);
-              console.error('Overpass background fetch failed:', err);
-            });
-        }
+            }
+          })
+          .catch((err) => {
+            isFetchingOverpass.current = false;
+            console.error('Overpass background fetch failed:', err);
+          });
       }
 
       // --- Open-Meteo Live Weather Integration with 5-minute / 20-mile throttle ---
