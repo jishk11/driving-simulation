@@ -7,6 +7,7 @@ interface DashboardProps {
   duration: number;          // in seconds
   elapsedMs: number;         // in milliseconds
   isDriving: boolean;
+  isPaused: boolean;
   isCompleted: boolean;
   speedMultiplier: number;   // e.g. 1, 10, 100
   setSpeedMultiplier: (val: number) => void;
@@ -15,6 +16,7 @@ interface DashboardProps {
   currentSpeedMph: number;   // calculated speed in MPH
   weather: WeatherData | null;
   isDarkMode: boolean;
+  isSpeedLimitFallback: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -22,6 +24,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   duration,
   elapsedMs,
   isDriving,
+  isPaused,
   isCompleted,
   speedMultiplier,
   setSpeedMultiplier,
@@ -30,6 +33,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   currentSpeedMph,
   weather,
   isDarkMode,
+  isSpeedLimitFallback,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -126,10 +130,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <h2 className="text-sm font-semibold uppercase tracking-wider">Telemetry HUD</h2>
           <div className="flex items-center space-x-3">
             {isDriving ? (
-              <span className="flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-xs font-semibold text-emerald-400">Live Sim Active</span>
-              </span>
+              isPaused ? (
+                <span className="flex items-center space-x-1.5">
+                  <span className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-amber-400' : 'bg-amber-500'}`}></span>
+                  <span className={`text-xs font-semibold ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Sim Paused</span>
+                </span>
+              ) : (
+                <span className="flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span className="text-xs font-semibold text-emerald-400">Live Sim Active</span>
+                </span>
+              )
             ) : (
               <span className="text-xs font-semibold text-slate-400">Route Staged</span>
             )}
@@ -189,10 +200,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div>
                   <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
                   <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                    {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
+                    {isDriving && !isPaused ? currentSpeedMph.toFixed(0) : '0'} mph
                   </p>
                   <p className={`text-[10px] ${subTextClass}`}>
-                    {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
+                    {isDriving && !isPaused ? currentSpeedKmh.toFixed(0) : '0'} km/h
                   </p>
                 </div>
               </div>
@@ -306,6 +317,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>
                   Background tab interpolation active. If the tab goes to sleep, the car will teleport to the correct spot upon wake.
                 </span>
+              </div>
+            )}
+
+            {/* Speed Limit Footnote */}
+            {isDriving && isSpeedLimitFallback && (
+              <div className={`mt-2 text-[9px] italic ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                * Speed limit is estimated from road type
               </div>
             )}
           </div>

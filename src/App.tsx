@@ -483,6 +483,7 @@ function App() {
         duration={duration}
         elapsedMs={virtualElapsedMs}
         isDriving={status === 'driving' || status === 'paused'}
+        isPaused={status === 'paused'}
         isCompleted={status === 'completed'}
         speedMultiplier={speedMultiplier}
         setSpeedMultiplier={handleSetSpeedMultiplier}
@@ -491,6 +492,7 @@ function App() {
         currentSpeedMph={currentSpeedMph}
         weather={weather}
         isDarkMode={isDarkMode}
+        isSpeedLimitFallback={isSpeedLimitFallback}
       />
     </div>
   );
