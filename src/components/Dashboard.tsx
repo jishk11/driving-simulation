@@ -74,7 +74,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const etaString = useMemo(() => {
     if (isCompleted) return 'Arrived';
     const etaDate = new Date(Date.now() + displayRemainingSec * 1000);
-    return etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return etaDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }, [displayRemainingSec, isCompleted]);
 
   const progressPercent = useMemo(() => {
