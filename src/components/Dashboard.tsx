@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Compass, Clock, Gauge, Route, Eye, EyeOff, ShieldAlert, ChevronUp, ChevronDown } from 'lucide-react';
 import type { WeatherData } from '../services/navigation';
 
@@ -36,6 +36,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isSpeedLimitFallback,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Force re-renders every second while paused so ETA rises dynamically
+  const [pauseTick, setPauseTick] = useState(0);
+  useEffect(() => {
+    if (!isPaused) return;
+    const interval = setInterval(() => setPauseTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
   // Convert distance to miles & km
   const distanceKm = distance / 1000;
@@ -75,7 +83,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (isCompleted) return 'Arrived';
     const etaDate = new Date(Date.now() + displayRemainingSec * 1000);
     return etaDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }, [displayRemainingSec, isCompleted]);
+  }, [displayRemainingSec, isCompleted, pauseTick]);
 
   const progressPercent = useMemo(() => {
     if (durationSec <= 0) return 0;
