@@ -225,6 +225,7 @@ export interface OverpassRoadData {
 
 // Overpass API endpoints — mirrors first (more permissive rate limits), then primary
 const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -267,7 +268,7 @@ export async function fetchNearestRoadData(
       const url = `${endpoint}?data=${encodedQuery}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -325,6 +326,7 @@ export async function fetchNearestRoadData(
 
   // All endpoints exhausted
   console.error('All Overpass API endpoints failed');
+  overpassCache = { lat, lon, result: null, timestamp: Date.now() };
   return null;
 }
 
