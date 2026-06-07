@@ -182,6 +182,8 @@ export interface WeatherData {
   code: number;
   text: string;
   icon: string;
+  sunrise?: string;
+  sunset?: string;
 }
 
 /**
@@ -189,7 +191,7 @@ export interface WeatherData {
  */
 export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherData | null> {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&daily=sunrise,sunset&timezone=GMT&forecast_days=1`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Open-Meteo query failed with status: ${response.status}`);
@@ -203,7 +205,10 @@ export async function fetchCurrentWeather(lat: number, lon: number): Promise<Wea
     // Convert code to text & icon
     const { text, icon } = getWeatherInfo(code);
 
-    return { temp, code, text, icon };
+    const sunrise = data.daily?.sunrise?.[0] || undefined;
+    const sunset = data.daily?.sunset?.[0] || undefined;
+
+    return { temp, code, text, icon, sunrise, sunset };
   } catch (error) {
     console.error('Weather service error:', error);
     return null;
