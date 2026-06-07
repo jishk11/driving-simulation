@@ -435,7 +435,13 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
     : 0;
 
-
+  const getCardinalDirection = (bearing: number) => {
+    if (bearing >= 315 || bearing < 45) return 'North';
+    if (bearing >= 45 && bearing < 135) return 'East';
+    if (bearing >= 135 && bearing < 225) return 'South';
+    if (bearing >= 225 && bearing < 315) return 'West';
+    return '';
+  };
 
 
   return (
@@ -462,9 +468,19 @@ function App() {
             : 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
         }`}>
           {currentStreetRef && (
-            <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2 py-0.5 rounded shadow-sm border border-blue-500/50">
-              {currentStreetRef.split(';')[0]}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-center bg-blue-600 text-white text-[11px] font-black px-2 py-0.5 rounded shadow-sm border border-blue-500/50">
+                {currentStreetRef.split(';')[0]}
+              </div>
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                {getCardinalDirection(carBearing)}
+              </span>
             </div>
+          )}
+          {!currentStreetRef && currentStreetName && (
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              {getCardinalDirection(carBearing)}
+            </span>
           )}
           {currentStreetName && (
             <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
