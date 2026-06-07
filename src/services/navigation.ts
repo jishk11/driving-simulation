@@ -216,8 +216,8 @@ export async function fetchRoute(
       if (spd >= 24.0) {
         // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
         currentTrafficFlow += (Math.random() - 0.5) * 0.04;
-        // Clamp between 0.70 (heavy slow traffic) and 1.05 (slightly speeding/open road)
-        currentTrafficFlow = Math.max(0.70, Math.min(1.05, currentTrafficFlow));
+        // Clamp between 0.85 (moderate traffic) and 1.10 (fast flow)
+        currentTrafficFlow = Math.max(0.85, Math.min(1.10, currentTrafficFlow));
         
         spd = spd * currentTrafficFlow;
       } else {
