@@ -68,8 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const displayRemainingSec = Math.max(0, baseRemainingSec + etaFluctuation);
 
-  // Dynamic Total Time (True Elapsed + Estimated Remaining)
-  const estimatedTotalSec = elapsedSec + displayRemainingSec;
+  // Dynamic Total Time (True Elapsed + True Estimated Remaining, completely ignoring the cosmetic ETA jitter)
+  const estimatedTotalSec = elapsedSec + baseRemainingSec;
   const estimatedTotalHours = Math.floor(estimatedTotalSec / 3600);
   const estimatedTotalMins = Math.floor((estimatedTotalSec % 3600) / 60);
 
