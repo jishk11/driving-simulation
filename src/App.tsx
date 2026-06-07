@@ -389,15 +389,27 @@ function App() {
   const baseOffset = Math.round(activeLongitude / 15);
   const offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
   
-  // Calculate local hour at coordinate based on UTC real time (used as fallback)
+  // Calculate local hour & decimal time at coordinate based on UTC real time
   const utcHours = realDate.getUTCHours();
+  const utcMinutes = realDate.getUTCMinutes();
   const localRealHour = (utcHours + offsetHours + 24) % 24;
+  const localRealTimeDecimal = localRealHour + utcMinutes / 60;
+
+  // Parse local time (HH:MM) from the ISO string "YYYY-MM-DDTHH:MM"
+  const parseLocalTimeDecimal = (str: string): number => {
+    const parts = str.split('T');
+    if (parts.length < 2) return 0;
+    const timeParts = parts[1].split(':');
+    const hr = parseInt(timeParts[0]);
+    const min = parseInt(timeParts[1]);
+    return hr + min / 60;
+  };
 
   let calculatedDarkMode = false;
   if (weather && weather.sunrise && weather.sunset) {
-    const sunriseTime = new Date(weather.sunrise + 'Z').getTime();
-    const sunsetTime = new Date(weather.sunset + 'Z').getTime();
-    calculatedDarkMode = realTime < sunriseTime || realTime > sunsetTime;
+    const sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
+    const sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
+    calculatedDarkMode = localRealTimeDecimal < sunriseDecimal || localRealTimeDecimal > sunsetDecimal;
   } else {
     // Graceful fallback to mathematical solar time
     calculatedDarkMode = localRealHour < 6 || localRealHour >= 20;

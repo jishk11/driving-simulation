@@ -191,7 +191,7 @@ export interface WeatherData {
  */
 export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherData | null> {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&daily=sunrise,sunset&timezone=GMT&forecast_days=1`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Open-Meteo query failed with status: ${response.status}`);
