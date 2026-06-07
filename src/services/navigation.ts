@@ -258,21 +258,19 @@ export async function fetchNearestRoadData(
       return overpassCache.result;
     }
   }
-  // Filter to car-drivable road types only
   const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
-  const encodedQuery = encodeURIComponent(query);
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const bodyParams = new URLSearchParams();
+      bodyParams.append('data', query);
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `data=${encodedQuery}`,
+        body: bodyParams,
         signal: controller.signal
       });
       clearTimeout(timeoutId);
