@@ -179,6 +179,7 @@ export async function fetchRoute(
       speeds = new Array(numSegments);
       durations = new Array(numSegments);
       let annIdx = 0;
+      let currentTrafficFlow = 1.0;
 
       for (let i = 0; i < numSegments; i++) {
         // Map this polyline segment's midpoint distance into annotation distance space
@@ -190,7 +191,22 @@ export async function fetchRoute(
           annIdx++;
         }
 
-        const spd = annSpeeds[annIdx] || (duration > 0 ? distance / duration : 13.8);
+        let spd = annSpeeds[annIdx] || (duration > 0 ? distance / duration : 13.8);
+
+        // Highway Realism Fluctuation (smooth random walk between 1.0x and 1.15x)
+        // If the speed limit is roughly 54+ mph (24 m/s), consider it a highway
+        if (spd >= 24.0) {
+          // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
+          currentTrafficFlow += (Math.random() - 0.5) * 0.04;
+          // Clamp between 1.0 (strict limit) and 1.15 (15% speeding)
+          currentTrafficFlow = Math.max(1.0, Math.min(1.15, currentTrafficFlow));
+          
+          spd = spd * currentTrafficFlow;
+        } else {
+          // Reset flow multiplier when off the highway
+          currentTrafficFlow = 1.0;
+        }
+
         const segDist = polyCumDist[i + 1] - polyCumDist[i];
         speeds[i] = spd;
         durations[i] = spd > 0 ? segDist / spd : 0;
