@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Compass, Clock, Gauge, Route, Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Compass, Clock, Gauge, Route, Eye, EyeOff, ShieldAlert, ChevronUp, ChevronDown } from 'lucide-react';
 import type { WeatherData } from '../services/navigation';
 
 interface DashboardProps {
@@ -31,6 +31,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   weather,
   isDarkMode,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   // Convert distance to miles & km
   const distanceKm = distance / 1000;
   const distanceMiles = distanceKm * 0.621371;
@@ -105,183 +107,209 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 z-[1000] w-auto md:w-96">
       <div className={`rounded-2xl p-5 transition-all duration-500 ${hudContainerClass}`}>
-        <div className={`flex items-center justify-between mb-4 border-b pb-3 ${isDarkMode ? 'border-slate-800' : 'border-slate-200/80'}`}>
-          <h2 className={`text-sm font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>Telemetry HUD</h2>
-          {isDriving ? (
-            <span className="flex items-center space-x-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              <span className="text-xs font-semibold text-emerald-400">Live Sim Active</span>
-            </span>
-          ) : (
-            <span className="text-xs font-semibold text-slate-400">Route Staged</span>
-          )}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsExpanded(!isExpanded)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              setIsExpanded(!isExpanded);
+            }
+          }}
+          className={`flex items-center justify-between cursor-pointer select-none transition-all duration-300 rounded-lg p-2 -mx-2 -mt-2
+            ${isExpanded ? 'mb-4 border-b pb-3 rounded-b-none' : 'mb-0'}
+            ${isDarkMode
+              ? 'border-slate-800 hover:bg-white/5 text-slate-200'
+              : 'border-slate-200/80 hover:bg-black/5 text-slate-700'
+            }`}
+        >
+          <h2 className="text-sm font-semibold uppercase tracking-wider">Telemetry HUD</h2>
+          <div className="flex items-center space-x-3">
+            {isDriving ? (
+              <span className="flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="text-xs font-semibold text-emerald-400">Live Sim Active</span>
+              </span>
+            ) : (
+              <span className="text-xs font-semibold text-slate-400">Route Staged</span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+            ) : (
+              <ChevronDown className={`w-4 h-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+            )}
+          </div>
         </div>
 
-        {/* Live Weather Integration Banner */}
-        {weather && (
-          <div className={`mb-4 border rounded-xl p-3 flex items-center justify-between transition-all duration-500 ${
-            isDarkMode ? 'bg-slate-900/50 border-slate-800/60' : 'bg-slate-100/40 border-slate-200/60'
-          }`}>
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl select-none" role="img" aria-label={weather.text}>
-                {weatherIcon}
-              </span>
-              <div>
-                <p className={`text-[9px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Local Weather</p>
-                <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{weather.text}</p>
+        <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-0' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+          <div className="overflow-hidden min-h-0">
+            {/* Live Weather Integration Banner */}
+            {weather && (
+              <div className={`mb-4 border rounded-xl p-3 flex items-center justify-between transition-all duration-500 ${
+                isDarkMode ? 'bg-slate-900/50 border-slate-800/60' : 'bg-slate-100/40 border-slate-200/60'
+              }`}>
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl select-none" role="img" aria-label={weather.text}>
+                    {weatherIcon}
+                  </span>
+                  <div>
+                    <p className={`text-[9px] uppercase tracking-wider font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Local Weather</p>
+                    <p className={`text-xs font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{weather.text}</p>
+                  </div>
+                </div>
+                <div className={`px-2.5 py-1 rounded-lg border transition-all duration-500 ${
+                  isDarkMode ? 'bg-slate-950/40 border-slate-800/40 text-white' : 'bg-white/80 border-slate-200/40 text-slate-800 shadow-sm'
+                }`}>
+                  <span className="text-sm font-black">{Math.round(weather.temp)}°F</span>
+                </div>
+              </div>
+            )}
+
+            {/* 2x2 Grid Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Distance */}
+              <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+                <div className={`p-2 rounded-lg text-blue-500 flex-shrink-0 ${isDarkMode ? 'bg-blue-500/10' : 'bg-blue-500/15'}`}>
+                  <Route className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Distance</p>
+                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                    {distanceMiles.toFixed(1)} mi
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>{distanceKm.toFixed(1)} km</p>
+                </div>
+              </div>
+
+              {/* Speed */}
+              <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+                <div className={`p-2 rounded-lg text-amber-500 flex-shrink-0 ${isDarkMode ? 'bg-amber-500/10' : 'bg-amber-500/15'}`}>
+                  <Gauge className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
+                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                    {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>
+                    {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
+                  </p>
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+                <div className={`p-2 rounded-lg text-purple-500 flex-shrink-0 ${isDarkMode ? 'bg-purple-500/10' : 'bg-purple-500/15'}`}>
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Total Time</p>
+                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                    {totalHours > 0 ? `${totalHours}h ` : ''}{totalMins}m
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>{formatTime(duration)}</p>
+                </div>
+              </div>
+
+              {/* Time Remaining / ETA */}
+              <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
+                <div className={`p-2 rounded-lg text-pink-500 flex-shrink-0 ${isDarkMode ? 'bg-pink-500/10' : 'bg-pink-500/15'}`}>
+                  <Compass className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${etaLabelClass}`}>
+                    {isTimeWarped ? 'Simulated ETA' : 'ETA'}
+                  </p>
+                  <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
+                    {etaString}
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>
+                    -{formatTime(remainingSec)}
+                  </p>
+                </div>
               </div>
             </div>
-            <div className={`px-2.5 py-1 rounded-lg border transition-all duration-500 ${
-              isDarkMode ? 'bg-slate-950/40 border-slate-800/40 text-white' : 'bg-white/80 border-slate-200/40 text-slate-800 shadow-sm'
-            }`}>
-              <span className="text-sm font-black">{Math.round(weather.temp)}°F</span>
-            </div>
-          </div>
-        )}
 
-        {/* 2x2 Grid Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Distance */}
-          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
-            <div className={`p-2 rounded-lg text-blue-500 flex-shrink-0 ${isDarkMode ? 'bg-blue-500/10' : 'bg-blue-500/15'}`}>
-              <Route className="w-4 h-4" />
+            {/* Progress Bar */}
+            <div className="mt-4">
+              <div className={`flex justify-between items-center text-[10px] mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                <span>Route Progress</span>
+                <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{progressPercent.toFixed(2)}%</span>
+              </div>
+              <div className={`w-full rounded-full h-2 overflow-hidden border ${
+                isDarkMode ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-100 border-slate-200/80'
+              }`}>
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <div className={`flex justify-between text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                <span>Elapsed: {formatTime(elapsedSec)}</span>
+                <span className={isTimeWarped ? (isDarkMode ? 'text-amber-400/90 font-semibold' : 'text-amber-600 font-semibold') : ''}>
+                  {isTimeWarped ? 'Sim. Remaining: ' : 'Remaining: '}{formatTime(remainingSec)}
+                </span>
+              </div>
             </div>
-            <div>
-              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Distance</p>
-              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                {distanceMiles.toFixed(1)} mi
-              </p>
-              <p className={`text-[10px] ${subTextClass}`}>{distanceKm.toFixed(1)} km</p>
-            </div>
-          </div>
 
-          {/* Speed */}
-          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
-            <div className={`p-2 rounded-lg text-amber-500 flex-shrink-0 ${isDarkMode ? 'bg-amber-500/10' : 'bg-amber-500/15'}`}>
-              <Gauge className="w-4 h-4" />
-            </div>
-            <div>
-              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
-              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                {isDriving ? currentSpeedMph.toFixed(0) : '0'} mph
-              </p>
-              <p className={`text-[10px] ${subTextClass}`}>
-                {isDriving ? currentSpeedKmh.toFixed(0) : '0'} km/h
-              </p>
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
-            <div className={`p-2 rounded-lg text-purple-500 flex-shrink-0 ${isDarkMode ? 'bg-purple-500/10' : 'bg-purple-500/15'}`}>
-              <Clock className="w-4 h-4" />
-            </div>
-            <div>
-              <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Total Time</p>
-              <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                {totalHours > 0 ? `${totalHours}h ` : ''}{totalMins}m
-              </p>
-              <p className={`text-[10px] ${subTextClass}`}>{formatTime(duration)}</p>
-            </div>
-          </div>
-
-          {/* Time Remaining / ETA */}
-          <div className={`border rounded-xl p-3 flex items-center space-x-3 transition-all duration-500 ${gridItemClass}`}>
-            <div className={`p-2 rounded-lg text-pink-500 flex-shrink-0 ${isDarkMode ? 'bg-pink-500/10' : 'bg-pink-500/15'}`}>
-              <Compass className="w-4 h-4" />
-            </div>
-            <div>
-              <p className={`text-[10px] uppercase tracking-wider font-semibold ${etaLabelClass}`}>
-                {isTimeWarped ? 'Simulated ETA' : 'ETA'}
-              </p>
-              <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
-                {etaString}
-              </p>
-              <p className={`text-[10px] ${subTextClass}`}>
-                -{formatTime(remainingSec)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <div className={`flex justify-between items-center text-[10px] mb-1 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-            <span>Route Progress</span>
-            <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{progressPercent.toFixed(2)}%</span>
-          </div>
-          <div className={`w-full rounded-full h-2 overflow-hidden border ${
-            isDarkMode ? 'bg-slate-950 border-slate-800/80' : 'bg-slate-100 border-slate-200/80'
-          }`}>
-            <div
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className={`flex justify-between text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-            <span>Elapsed: {formatTime(elapsedSec)}</span>
-            <span className={isTimeWarped ? (isDarkMode ? 'text-amber-400/90 font-semibold' : 'text-amber-600 font-semibold') : ''}>
-              {isTimeWarped ? 'Sim. Remaining: ' : 'Remaining: '}{formatTime(remainingSec)}
-            </span>
-          </div>
-        </div>
-
-        {/* Camera and Multiplier Controls */}
-        <div className={`flex items-center justify-between mt-4 pt-3 border-t gap-3 ${isDarkMode ? 'border-slate-800/60' : 'border-slate-200/60'}`}>
-          {/* Camera follow toggler */}
-          <button
-            type="button"
-            onClick={() => setLockCamera(!lockCamera)}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-              lockCamera
-                ? isDarkMode
-                  ? 'bg-blue-600/25 border-blue-500/45 text-blue-300 hover:bg-blue-600/35'
-                  : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
-                : isDarkMode
-                  ? 'bg-slate-900 border-slate-800 text-gray-400 hover:text-white hover:border-gray-700'
-                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300'
-            }`}
-          >
-            {lockCamera ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>{lockCamera ? 'Camera Locked' : 'Camera Free'}</span>
-          </button>
-
-          {/* Time speedup multiplier */}
-          <div className={`flex items-center space-x-1 border rounded-lg p-0.5 transition-all duration-500 ${
-            isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
-          }`}>
-            {[1, 10, 100, 1000].map((m) => (
+            {/* Camera and Multiplier Controls */}
+            <div className={`flex items-center justify-between mt-4 pt-3 border-t gap-3 ${isDarkMode ? 'border-slate-800/60' : 'border-slate-200/60'}`}>
+              {/* Camera follow toggler */}
               <button
-                key={m}
                 type="button"
-                onClick={() => setSpeedMultiplier(m)}
-                disabled={!isDriving}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                  speedMultiplier === m && isDriving
-                    ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                onClick={() => setLockCamera(!lockCamera)}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                  lockCamera
+                    ? isDarkMode
+                      ? 'bg-blue-600/25 border-blue-500/45 text-blue-300 hover:bg-blue-600/35'
+                      : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
                     : isDarkMode
-                      ? 'text-gray-400 hover:text-white'
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-slate-900 border-slate-800 text-gray-400 hover:text-white hover:border-gray-700'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300'
                 }`}
-                title={`${m}x speed`}
               >
-                {m}x
+                {lockCamera ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span>{lockCamera ? 'Camera Locked' : 'Camera Free'}</span>
               </button>
-            ))}
+
+              {/* Time speedup multiplier */}
+              <div className={`flex items-center space-x-1 border rounded-lg p-0.5 transition-all duration-500 ${
+                isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                {[1, 10, 100, 1000].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSpeedMultiplier(m)}
+                    disabled={!isDriving}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                      speedMultiplier === m && isDriving
+                        ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                        : isDarkMode
+                          ? 'text-gray-400 hover:text-white'
+                          : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    title={`${m}x speed`}
+                  >
+                    {m}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Throttling Advisory Alert */}
+            {isDriving && speedMultiplier === 1 && (
+              <div className={`mt-3 flex items-start space-x-2 text-[10px] border p-2 rounded-lg transition-all duration-500 ${
+                isDarkMode ? 'bg-slate-950/60 border-slate-800/50 text-slate-400' : 'bg-slate-50/60 border-slate-200/50 text-slate-500'
+              }`}>
+                <ShieldAlert className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+                <span>
+                  Background tab interpolation active. If the tab goes to sleep, the car will teleport to the correct spot upon wake.
+                </span>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Throttling Advisory Alert */}
-        {isDriving && speedMultiplier === 1 && (
-          <div className={`mt-3 flex items-start space-x-2 text-[10px] border p-2 rounded-lg transition-all duration-500 ${
-            isDarkMode ? 'bg-slate-950/60 border-slate-800/50 text-slate-400' : 'bg-slate-50/60 border-slate-200/50 text-slate-500'
-          }`}>
-            <ShieldAlert className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <span>
-              Background tab interpolation active. If the tab goes to sleep, the car will teleport to the correct spot upon wake.
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
