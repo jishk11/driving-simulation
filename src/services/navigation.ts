@@ -196,6 +196,10 @@ export async function fetchRoute(
         // Highway Realism Fluctuation (smooth random walk between 1.0x and 1.15x)
         // If the speed limit is roughly 54+ mph (24 m/s), consider it a highway
         if (spd >= 24.0) {
+          // OSRM usually caps highway speeds very conservatively (around 58mph).
+          // Boost the baseline by 15% to align with typical US highway limits (65-70mph).
+          spd = spd * 1.15;
+
           // Drift the traffic flow multiplier smoothly up or down by max 2% per segment
           currentTrafficFlow += (Math.random() - 0.5) * 0.04;
           // Clamp between 1.0 (strict limit) and 1.15 (15% speeding)
