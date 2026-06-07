@@ -352,9 +352,9 @@ function App() {
           });
       }
 
-      // Simulate a realistic driving speed: active road speed limit (in MPH) + minor wave noise
-      const activeLimitMps = stateRef.current.speedLimitMps;
-      const baseSpeedMph = activeLimitMps * 2.236936;
+      // Simulate a realistic driving speed: actual physical speed (in MPH) + minor wave noise
+      // This accurately reflects any traffic flow multipliers applied in the routing engine
+      const baseSpeedMph = osrmSpeedMps * 2.236936;
       const waveNoiseMph = Math.sin(now / 1200) * 2.0 + Math.cos(now / 3200) * 0.8;
       const simulatedSpeedMph = baseSpeedMph > 0 ? Math.max(5, baseSpeedMph + waveNoiseMph) : 0;
       setCurrentSpeedMph(simulatedSpeedMph);
