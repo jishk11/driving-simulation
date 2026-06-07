@@ -36,6 +36,7 @@ function App() {
   // Visual tracking
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [currentStreetName, setCurrentStreetName] = useState<string | null>(null);
+  const [currentStreetRef, setCurrentStreetRef] = useState<string | null>(null);
 
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -245,6 +246,7 @@ function App() {
     setIsSpeedLimitFallback(true);
     setCurrentSegmentIndex(0);
     setCurrentStreetName(null);
+    setCurrentStreetRef(null);
     setWeather(null);
     setVirtualElapsedMs(0);
     setLastUpdateRealTime(0);
@@ -313,6 +315,7 @@ function App() {
               setSpeedLimitMps(parsedSpeed);
               setIsSpeedLimitFallback(!result.confident);
               setCurrentStreetName(result.name || null);
+              setCurrentStreetRef(result.ref || null);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
@@ -452,15 +455,22 @@ function App() {
       </div>
 
       {/* Floating Street Name UI (Bottom Middle) */}
-      {(status === 'driving' || status === 'paused') && currentStreetName && (
-        <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${
+      {(status === 'driving' || status === 'paused') && (currentStreetName || currentStreetRef) && (
+        <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${
           isDarkMode 
             ? 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50' 
             : 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
         }`}>
-          <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
-            {currentStreetName}
-          </span>
+          {currentStreetRef && (
+            <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2 py-0.5 rounded shadow-sm border border-blue-500/50">
+              {currentStreetRef.split(';')[0]}
+            </div>
+          )}
+          {currentStreetName && (
+            <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
+              {currentStreetName}
+            </span>
+          )}
         </div>
       )}
 
