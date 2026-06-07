@@ -303,7 +303,7 @@ function App() {
           lastQuerySegmentIndex.current = segmentIndex;
           isFetchingOverpass.current = true;
 
-          fetchNearestRoadData(position[0], position[1])
+          fetchNearestRoadData(position[0], position[1], osrmSpeedMps)
             .then((result) => {
               isFetchingOverpass.current = false;
               if (result) {

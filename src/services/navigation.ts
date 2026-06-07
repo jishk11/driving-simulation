@@ -1,3 +1,5 @@
+import { parseMaxspeedToMps } from '../utils/geo';
+
 export interface GeocodeResult {
   lat: number;
   lon: number;
@@ -140,10 +142,11 @@ export interface OverpassRoadData {
  */
 export async function fetchNearestRoadData(
   lat: number,
-  lon: number
+  lon: number,
+  osrmSpeedMps: number
 ): Promise<OverpassRoadData | null> {
   try {
-    const query = `[out:json][timeout:5];way(around:30,${lat},${lon})[highway];out tags;`;
+    const query = `[out:json][timeout:5];way(around:12,${lat},${lon})[highway];out tags;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
     const response = await fetch(url, {
@@ -164,12 +167,22 @@ export async function fetchNearestRoadData(
     const ways = data.elements.filter((el: any) => el.type === 'way' && el.tags);
     if (ways.length === 0) return null;
 
-    // Pick the first way that has a maxspeed, or just the first way
-    const wayWithSpeed = ways.find((w: any) => w.tags.maxspeed) || ways[0];
+    // Prioritize the road whose maxspeed (or fallback) most closely matches the car's current OSRM segment speed
+    let selectedWay = ways[0];
+    let minDifference = Infinity;
+
+    for (const way of ways) {
+      const parsedSpeed = parseMaxspeedToMps(way.tags.maxspeed, way.tags.highway, osrmSpeedMps);
+      const diff = Math.abs(parsedSpeed - osrmSpeedMps);
+      if (diff < minDifference) {
+        minDifference = diff;
+        selectedWay = way;
+      }
+    }
 
     return {
-      maxspeed: wayWithSpeed.tags.maxspeed || null,
-      highway: wayWithSpeed.tags.highway || null,
+      maxspeed: selectedWay.tags.maxspeed || null,
+      highway: selectedWay.tags.highway || null,
     };
   } catch (error) {
     console.error('Overpass API error:', error);
