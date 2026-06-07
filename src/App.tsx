@@ -42,7 +42,8 @@ function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
   // Time-tracking states for background-resilient interpolation:
-  const [virtualElapsedMs, setVirtualElapsedMs] = useState<number>(0);
+  const [trueElapsedMs, setTrueElapsedMs] = useState<number>(0);
+  const [virtualProgressMs, setVirtualProgressMs] = useState<number>(0);
   const [lastUpdateRealTime, setLastUpdateRealTime] = useState<number>(0);
 
   // Refs for tracking throttled Overpass API queries:
@@ -71,7 +72,8 @@ function App() {
     durations,
     duration,
     distance,
-    virtualElapsedMs,
+    trueElapsedMs,
+    virtualProgressMs,
     lastUpdateRealTime,
     speedMultiplier,
     speedLimitMps,
@@ -87,7 +89,8 @@ function App() {
       durations,
       duration,
       distance,
-      virtualElapsedMs,
+      trueElapsedMs,
+      virtualProgressMs,
       lastUpdateRealTime,
       speedMultiplier,
       speedLimitMps,
@@ -100,7 +103,8 @@ function App() {
     durations,
     duration,
     distance,
-    virtualElapsedMs,
+    trueElapsedMs,
+    virtualProgressMs,
     lastUpdateRealTime,
     speedMultiplier,
     speedLimitMps,
@@ -178,7 +182,8 @@ function App() {
 
   const setStartTimeState = (time: number) => {
     setLastUpdateRealTime(time);
-    setVirtualElapsedMs(0);
+    setTrueElapsedMs(0);
+    setVirtualProgressMs(0);
     
     // Reset Overpass refs
     lastOverpassQueryTime.current = 0;
@@ -198,12 +203,14 @@ function App() {
     const now = Date.now();
     const currentRef = stateRef.current;
     
-    // Checkpoint the virtual elapsed progress up to this exact millisecond
+    // Checkpoint the elapsed progress up to this exact millisecond
     const deltaReal = now - currentRef.lastUpdateRealTime;
-    const addedVirtualMs = deltaReal * currentRef.speedMultiplier;
-    const totalVirtualElapsed = currentRef.virtualElapsedMs + addedVirtualMs;
+    const addedTrueMs = deltaReal * currentRef.speedMultiplier;
+    const addedVirtualMs = addedTrueMs * liveTrafficRef.current.multiplier;
+    
+    setTrueElapsedMs(currentRef.trueElapsedMs + addedTrueMs);
+    setVirtualProgressMs(currentRef.virtualProgressMs + addedVirtualMs);
 
-    setVirtualElapsedMs(totalVirtualElapsed);
     setLastUpdateRealTime(now);
     setCurrentSpeedMph(0);
     setStatus('paused');
@@ -228,10 +235,12 @@ function App() {
     const currentRef = stateRef.current;
     
     const deltaReal = now - currentRef.lastUpdateRealTime;
-    const addedVirtualMs = deltaReal * currentRef.speedMultiplier;
-    const totalVirtualElapsed = currentRef.virtualElapsedMs + addedVirtualMs;
+    const addedTrueMs = deltaReal * currentRef.speedMultiplier;
+    const addedVirtualMs = addedTrueMs * liveTrafficRef.current.multiplier;
 
-    setVirtualElapsedMs(totalVirtualElapsed);
+    setTrueElapsedMs(currentRef.trueElapsedMs + addedTrueMs);
+    setVirtualProgressMs(currentRef.virtualProgressMs + addedVirtualMs);
+    
     setLastUpdateRealTime(now);
     setSpeedMultiplier(newMultiplier);
   };
@@ -249,14 +258,14 @@ function App() {
     setCarBearing(0);
     setSpeedMultiplier(1);
     setCurrentSpeedMph(0);
-    setSpeedLimitMps(0);
+    setTrueElapsedMs(0);
+    setVirtualProgressMs(0);
+    setLastUpdateRealTime(0);
     setIsSpeedLimitFallback(true);
     setCurrentSegmentIndex(0);
     setCurrentStreetName(null);
     setCurrentStreetRef(null);
     setWeather(null);
-    setVirtualElapsedMs(0);
-    setLastUpdateRealTime(0);
     
     lastOverpassQueryTime.current = 0;
     lastQuerySegmentIndex.current = -1;
@@ -296,9 +305,10 @@ function App() {
         liveTrafficRef.current.multiplier = 1.0;
       }
 
-      const currentVirtualElapsed = currentRef.virtualElapsedMs + deltaReal * currentRef.speedMultiplier * currentLiveMultiplier;
+      const currentTrueElapsed = currentRef.trueElapsedMs + deltaReal * currentRef.speedMultiplier;
+      const currentVirtualProgress = currentRef.virtualProgressMs + deltaReal * currentRef.speedMultiplier * currentLiveMultiplier;
 
-      const elapsedSeconds = currentVirtualElapsed / 1000;
+      const elapsedSeconds = currentVirtualProgress / 1000;
       const totalDurationSeconds = currentRef.duration;
 
       // Check if drive is finished
@@ -306,7 +316,8 @@ function App() {
         setCarPosition(currentRef.route[currentRef.route.length - 1]);
         setCurrentSpeedMph(0);
         setSpeedLimitMps(0);
-        setVirtualElapsedMs(totalDurationSeconds * 1000);
+        setTrueElapsedMs(currentTrueElapsed);
+        setVirtualProgressMs(totalDurationSeconds * 1000);
         setStatus('completed');
         return;
       }
@@ -394,7 +405,8 @@ function App() {
       const simulatedSpeedMph = baseSpeedMph > 0 ? Math.max(5, baseSpeedMph + waveNoiseMph) : 0;
       setCurrentSpeedMph(simulatedSpeedMph);
 
-      setVirtualElapsedMs(currentVirtualElapsed);
+      setTrueElapsedMs(currentTrueElapsed);
+      setVirtualProgressMs(currentVirtualProgress);
       setLastUpdateRealTime(now);
 
       animId = requestAnimationFrame(tick);
@@ -553,11 +565,12 @@ function App() {
       />
 
       {/* Glassmorphic Dashboard Panel (Bottom Right) */}
-      <Dashboard
-        distance={distance}
-        duration={duration}
-        elapsedMs={virtualElapsedMs}
-        isDriving={status === 'driving' || status === 'paused'}
+        <Dashboard
+          distance={distance}
+          duration={duration}
+          elapsedMs={trueElapsedMs}
+          virtualProgressMs={virtualProgressMs}
+          isDriving={status === 'driving' || status === 'paused'}
         isPaused={status === 'paused'}
         isCompleted={status === 'completed'}
         speedMultiplier={speedMultiplier}

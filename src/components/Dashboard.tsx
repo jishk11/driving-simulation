@@ -5,7 +5,8 @@ import type { WeatherData } from '../services/navigation';
 interface DashboardProps {
   distance: number;          // in meters
   duration: number;          // in seconds
-  elapsedMs: number;         // in milliseconds
+  elapsedMs: number;         // in milliseconds (true elapsed)
+  virtualProgressMs: number; // in milliseconds (physics tracking)
   isDriving: boolean;
   isPaused: boolean;
   isCompleted: boolean;
@@ -23,6 +24,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   distance,
   duration,
   elapsedMs,
+  virtualProgressMs,
   isDriving,
   isPaused,
   isCompleted,
@@ -54,9 +56,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalHours = Math.floor(durationSec / 3600);
   const totalMins = Math.floor((durationSec % 3600) / 60);
 
-  // Time elapsed in seconds
+  // Time elapsed in seconds (true wall-clock)
   const elapsedSec = Math.floor(elapsedMs / 1000);
-  const baseRemainingSec = Math.max(0, durationSec - elapsedSec);
+  
+  // Progress in seconds (physics track)
+  const progressSec = Math.floor(virtualProgressMs / 1000);
+  const baseRemainingSec = Math.max(0, durationSec - progressSec);
 
   // Realistic GPS Fluctuation: Add an organic drift to the ETA (±15 seconds) so it doesn't tick perfectly like a stopwatch
   // The sine waves create a smooth, pseudo-random "live calculation" feel based on real-world time
@@ -87,8 +92,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const progressPercent = useMemo(() => {
     if (durationSec <= 0) return 0;
-    return Math.min(100, (elapsedSec / durationSec) * 100);
-  }, [elapsedSec, durationSec]);
+    return Math.min(100, (progressSec / durationSec) * 100);
+  }, [progressSec, durationSec]);
 
   // Speeds in metric
   const currentSpeedKmh = currentSpeedMph * 1.609344;
