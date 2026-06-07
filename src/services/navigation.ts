@@ -218,6 +218,7 @@ export async function fetchRoute(
 export interface OverpassRoadData {
   maxspeed: string | null;
   highway: string | null;
+  confident: boolean;
 }
 
 /**
@@ -229,7 +230,8 @@ export async function fetchNearestRoadData(
   osrmSpeedMps: number
 ): Promise<OverpassRoadData | null> {
   try {
-    const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway];out tags;`;
+    // Filter to car-drivable road types only — exclude footways, cycleways, paths, pedestrian areas, steps, service roads
+    const query = `[out:json][timeout:5];way(around:25,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
     const response = await fetch(url, {
@@ -250,11 +252,15 @@ export async function fetchNearestRoadData(
     const ways = data.elements.filter((el: any) => el.type === 'way' && el.tags);
     if (ways.length === 0) return null;
 
-    // Prioritize the road whose maxspeed (or fallback) most closely matches the car's current OSRM segment speed
-    let selectedWay = ways[0];
+    // Separate ways with an explicit maxspeed tag from those without
+    const waysWithMaxspeed = ways.filter((w: any) => w.tags.maxspeed);
+    const candidateWays = waysWithMaxspeed.length > 0 ? waysWithMaxspeed : ways;
+
+    // From candidates, pick the one whose speed most closely matches the car's current OSRM segment speed
+    let selectedWay = candidateWays[0];
     let minDifference = Infinity;
 
-    for (const way of ways) {
+    for (const way of candidateWays) {
       const parsedSpeed = parseMaxspeedToMps(way.tags.maxspeed, way.tags.highway, osrmSpeedMps);
       const diff = Math.abs(parsedSpeed - osrmSpeedMps);
       if (diff < minDifference) {
@@ -263,9 +269,14 @@ export async function fetchNearestRoadData(
       }
     }
 
+    const hasMaxspeed = !!selectedWay.tags.maxspeed;
+    const hasHighway = !!selectedWay.tags.highway;
+
     return {
       maxspeed: selectedWay.tags.maxspeed || null,
       highway: selectedWay.tags.highway || null,
+      // Confident if we have an explicit maxspeed tag, OR we at least found a known highway type
+      confident: hasMaxspeed || hasHighway,
     };
   } catch (error) {
     console.error('Overpass API error:', error);

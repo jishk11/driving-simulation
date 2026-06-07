@@ -304,7 +304,7 @@ function App() {
             if (result) {
               const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
               setSpeedLimitMps(parsedSpeed);
-              setIsSpeedLimitFallback(!result.maxspeed);
+              setIsSpeedLimitFallback(!result.confident);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
