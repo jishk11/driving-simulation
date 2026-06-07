@@ -5,7 +5,7 @@ import { MapDisplay } from './components/MapDisplay';
 import { WeatherOverlay } from './components/WeatherOverlay';
 import { geocodeAddress, fetchRoute, fetchNearestRoadData, fetchCurrentWeather } from './services/navigation';
 import type { WeatherData } from './services/navigation';
-import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance } from './utils/geo';
+import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance, calculateBearing } from './utils/geo';
 
 function App() {
   // Navigation & route states
@@ -475,17 +475,27 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
     : 0;
 
-  const getHighwayBound = (_ref: string, bearing: number) => {
+  const getHighwayBound = (_ref: string, routeData: [number, number][], currentIndex: number) => {
+    if (!routeData || routeData.length === 0) return '';
+    
     // Lock the cardinal bound the first time we enter a new highway.
-    // This prevents the highway name from fluctuating (e.g. from NORTH to WEST)
-    // if the road physically curves, while remaining globally accurate.
+    // To prevent locking in a bad direction due to a curved "cloverleaf" onramp,
+    // we calculate the "macro bearing" by looking up to 50 coordinate segments into the future!
     if (_ref !== lastSeenRefRef.current) {
       lastSeenRefRef.current = _ref;
+      
+      const p1 = routeData[currentIndex];
+      const lookAheadIndex = Math.min(currentIndex + 50, routeData.length - 1);
+      const p2 = routeData[lookAheadIndex];
+      
       let bound = '';
-      if (bearing >= 315 || bearing < 45) bound = 'NORTH';
-      else if (bearing >= 45 && bearing < 135) bound = 'EAST';
-      else if (bearing >= 135 && bearing < 225) bound = 'SOUTH';
-      else if (bearing >= 225 && bearing < 315) bound = 'WEST';
+      if (p1 && p2) {
+        const macroBearing = calculateBearing(p1, p2);
+        if (macroBearing >= 315 || macroBearing < 45) bound = 'NORTH';
+        else if (macroBearing >= 45 && macroBearing < 135) bound = 'EAST';
+        else if (macroBearing >= 135 && macroBearing < 225) bound = 'SOUTH';
+        else if (macroBearing >= 225 && macroBearing < 315) bound = 'WEST';
+      }
       lockedHighwayBoundRef.current = bound;
     }
     return lockedHighwayBoundRef.current;
@@ -517,7 +527,7 @@ function App() {
         }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, carBearing)}
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex)}
             </div>
           )}
           {currentStreetName && (
