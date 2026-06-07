@@ -59,7 +59,10 @@ export function buildCumulativeDurations(durations: number[]): number[] {
   const cumulative: number[] = [0];
   let sum = 0;
   for (let i = 0; i < durations.length; i++) {
-    sum += durations[i];
+    const d = durations[i];
+    if (!isNaN(d) && d > 0) {
+      sum += d;
+    }
     cumulative.push(sum);
   }
   return cumulative;
@@ -98,10 +101,10 @@ export function interpolatePositionByTime(
     return { position: route[lastIdx], bearing, segmentIndex: lastIdx - 1, speedMps };
   }
 
-  // Binary search to find segmentIndex such that cumulativeDurations[segmentIndex] <= elapsedSec < cumulativeDurations[segmentIndex + 1]
+  // Binary search to find segmentIndex
   let low = 0;
   let high = cumulativeDurations.length - 2;
-  let segmentIndex = 0;
+  let segmentIndex = -1;
 
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
@@ -115,13 +118,37 @@ export function interpolatePositionByTime(
     }
   }
 
+  // Fallback 1: Linear scan (guards against microscopic floating point gaps)
+  if (segmentIndex === -1) {
+    for (let i = 0; i < cumulativeDurations.length - 1; i++) {
+      if (cumulativeDurations[i] <= elapsedSec && elapsedSec <= cumulativeDurations[i + 1]) {
+        segmentIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Fallback 2: Clamp to nearest valid segment
+  if (segmentIndex === -1) {
+    for (let i = cumulativeDurations.length - 2; i >= 0; i--) {
+      if (cumulativeDurations[i] <= elapsedSec) {
+        segmentIndex = i;
+        break;
+      }
+    }
+    if (segmentIndex === -1) segmentIndex = 0;
+  }
+
   const p1 = route[segmentIndex];
   const p2 = route[segmentIndex + 1];
   const t1 = cumulativeDurations[segmentIndex];
   const t2 = cumulativeDurations[segmentIndex + 1];
 
   const segmentDuration = t2 - t1;
-  const t = segmentDuration > 0 ? (elapsedSec - t1) / segmentDuration : 0;
+  let t = segmentDuration > 0 ? (elapsedSec - t1) / segmentDuration : 0;
+  
+  // Physically prevent the railgun bug by clamping t
+  t = Math.max(0, Math.min(1, t));
 
   const lat = p1[0] + t * (p2[0] - p1[0]);
   const lon = p1[1] + t * (p2[1] - p1[1]);
