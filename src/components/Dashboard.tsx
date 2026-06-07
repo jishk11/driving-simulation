@@ -48,7 +48,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Time elapsed in seconds
   const elapsedSec = Math.floor(elapsedMs / 1000);
-  const remainingSec = Math.max(0, durationSec - elapsedSec);
+  const baseRemainingSec = Math.max(0, durationSec - elapsedSec);
+
+  // Realistic GPS Fluctuation: Add an organic drift to the ETA (±15 seconds) so it doesn't tick perfectly like a stopwatch
+  // The sine waves create a smooth, pseudo-random "live calculation" feel based on real-world time
+  const etaFluctuation = (isDriving && !isPaused && !isCompleted)
+    ? Math.round((Math.sin(Date.now() / 6000) * 12) + (Math.cos(Date.now() / 13000) * 8))
+    : 0;
+
+  const displayRemainingSec = Math.max(0, baseRemainingSec + etaFluctuation);
 
   // Formatting helpers
   const formatTime = (totalSeconds: number) => {
@@ -65,9 +73,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const etaString = useMemo(() => {
     if (isCompleted) return 'Arrived';
-    const etaDate = new Date(Date.now() + remainingSec * 1000);
+    const etaDate = new Date(Date.now() + displayRemainingSec * 1000);
     return etaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }, [remainingSec, isCompleted]);
+  }, [displayRemainingSec, isCompleted]);
 
   const progressPercent = useMemo(() => {
     if (durationSec <= 0) return 0;
@@ -235,7 +243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {etaString}
                   </p>
                   <p className={`text-[10px] ${subTextClass}`}>
-                    -{formatTime(remainingSec)}
+                    -{formatTime(displayRemainingSec)}
                   </p>
                 </div>
               </div>
@@ -258,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className={`flex justify-between text-[10px] mt-1 ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
                 <span>Elapsed: {formatTime(elapsedSec)}</span>
                 <span className={isTimeWarped ? (isDarkMode ? 'text-amber-400/90 font-semibold' : 'text-amber-600 font-semibold') : ''}>
-                  {isTimeWarped ? 'Sim. Remaining: ' : 'Remaining: '}{formatTime(remainingSec)}
+                  {isTimeWarped ? 'Sim. Remaining: ' : 'Remaining: '}{formatTime(displayRemainingSec)}
                 </span>
               </div>
             </div>
