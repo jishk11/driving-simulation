@@ -37,6 +37,7 @@ function App() {
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [currentStreetName, setCurrentStreetName] = useState<string | null>(null);
   const [currentStreetRef, setCurrentStreetRef] = useState<string | null>(null);
+  const [currentStreetDirection, setCurrentStreetDirection] = useState<string | null>(null);
 
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -269,6 +270,7 @@ function App() {
     setCurrentSegmentIndex(0);
     setCurrentStreetName(null);
     setCurrentStreetRef(null);
+    setCurrentStreetDirection(null);
     setWeather(null);
     
     lastOverpassQueryTime.current = 0;
@@ -354,11 +356,13 @@ function App() {
               setIsSpeedLimitFallback(!result.confident);
               setCurrentStreetName(result.name || null);
               setCurrentStreetRef(result.ref || null);
+              setCurrentStreetDirection(result.direction || null);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
               setSpeedLimitMps(fallbackSpeed);
               setIsSpeedLimitFallback(true);
+              setCurrentStreetDirection(null);
             }
           })
           .catch((err) => {
@@ -475,9 +479,27 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
     : 0;
 
-  const getHighwayBound = (_ref: string, routeData: [number, number][], currentIndex: number) => {
+  const isCoordinateInUS = (lat: number, lon: number): boolean => {
+    // Contiguous US: Lat [24, 50], Lon [-125, -66]
+    const inContiguous = lat >= 24.0 && lat <= 50.0 && lon >= -125.0 && lon <= -66.0;
+    // Alaska: Lat [51, 72], Lon [-180, -120]
+    const inAlaska = lat >= 51.0 && lat <= 72.0 && lon >= -180.0 && lon <= -120.0;
+    // Hawaii: Lat [18, 29], Lon [-180, -150]
+    const inHawaii = lat >= 18.0 && lat <= 29.0 && lon >= -180.0 && lon <= -150.0;
+    
+    return inContiguous || inAlaska || inHawaii;
+  };
+
+  const getHighwayBound = (_ref: string, routeData: [number, number][], currentIndex: number, osmDirection: string | null) => {
     if (!routeData || routeData.length === 0) return '';
     
+    // If we have an OSM direction, prioritize it and update the lock
+    if (osmDirection) {
+      lastSeenRefRef.current = _ref;
+      lockedHighwayBoundRef.current = osmDirection;
+      return osmDirection;
+    }
+
     // Lock the cardinal bound the first time we enter a new highway.
     // To prevent locking in a bad direction due to a curved "cloverleaf" onramp,
     // we calculate the "macro bearing" by looking up to 50 coordinate segments into the future!
@@ -491,10 +513,30 @@ function App() {
       let bound = '';
       if (p1 && p2) {
         const macroBearing = calculateBearing(p1, p2);
-        if (macroBearing >= 315 || macroBearing < 45) bound = 'NORTH';
-        else if (macroBearing >= 45 && macroBearing < 135) bound = 'EAST';
-        else if (macroBearing >= 135 && macroBearing < 225) bound = 'SOUTH';
-        else if (macroBearing >= 225 && macroBearing < 315) bound = 'WEST';
+        
+        // Clean ref to examine the primary route identifier
+        const primaryRef = _ref.split(';')[0];
+        const match = primaryRef.match(/\d+/);
+        
+        // Only apply odd/even highway designation rules if we are driving in the US
+        if (match && isCoordinateInUS(p1[0], p1[1])) {
+          const num = parseInt(match[0], 10);
+          const isEven = num % 2 === 0;
+          
+          if (isEven) {
+            // Even-numbered highways run East-West
+            bound = (macroBearing >= 0 && macroBearing < 180) ? 'EAST' : 'WEST';
+          } else {
+            // Odd-numbered highways run North-South
+            bound = (macroBearing >= 270 || macroBearing < 90) ? 'NORTH' : 'SOUTH';
+          }
+        } else {
+          // Fallback to standard 4-way direction based on heading for unnumbered routes and non-US highways
+          if (macroBearing >= 315 || macroBearing < 45) bound = 'NORTH';
+          else if (macroBearing >= 45 && macroBearing < 135) bound = 'EAST';
+          else if (macroBearing >= 135 && macroBearing < 225) bound = 'SOUTH';
+          else if (macroBearing >= 225 && macroBearing < 315) bound = 'WEST';
+        }
       }
       lockedHighwayBoundRef.current = bound;
     }
@@ -527,7 +569,7 @@ function App() {
         }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex)}
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetDirection)}
             </div>
           )}
           {currentStreetName && (

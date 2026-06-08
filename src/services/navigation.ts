@@ -259,6 +259,7 @@ export interface OverpassRoadData {
   highway: string | null;
   name: string | null;
   ref: string | null;
+  direction: string | null;
   confident: boolean;
 }
 
@@ -299,7 +300,7 @@ export async function fetchNearestRoadData(
       return overpassCache.result;
     }
   }
-  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"];out tags;`;
+  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"]->.w;(.w;rel(bw.w););out tags;`;
 
   // Try our Vercel edge rewrite proxy first (avoids CORS on production).
   // The rewrite transparently forwards the POST to overpass.openstreetmap.fr.
@@ -345,6 +346,8 @@ export async function fetchNearestRoadData(
       }
 
       const ways = data.elements.filter((el: any) => el.type === 'way' && el.tags);
+      const relations = data.elements.filter((el: any) => el.type === 'relation' && el.tags);
+
       if (ways.length === 0) {
         overpassCache = { lat, lon, result: null, timestamp: Date.now() };
         return null;
@@ -384,11 +387,74 @@ export async function fetchNearestRoadData(
         }
       }
 
+      // Extract direction/bound from way tags or parent route relations
+      let extractedDirection: string | null = null;
+
+      // 1. Check direct way tags (OSM direction or cardinal tags)
+      const directDir = selectedWay.tags.direction || selectedWay.tags.cardinal;
+      if (directDir) {
+        const cleanDir = directDir.toUpperCase();
+        if (['NORTH', 'SOUTH', 'EAST', 'WEST'].includes(cleanDir)) {
+          extractedDirection = cleanDir;
+        } else if (cleanDir === 'N') extractedDirection = 'NORTH';
+        else if (cleanDir === 'S') extractedDirection = 'SOUTH';
+        else if (cleanDir === 'E') extractedDirection = 'EAST';
+        else if (cleanDir === 'W') extractedDirection = 'WEST';
+      }
+
+      // 2. If no direct direction, inspect route relations containing this way
+      if (!extractedDirection && relations.length > 0) {
+        for (const rel of relations) {
+          // Check if it's a road route relation
+          const isRoadRoute = rel.tags.type === 'route' && rel.tags.route === 'road';
+          if (!isRoadRoute) continue;
+
+          // Find the member corresponding to our selectedWay
+          const member = rel.members?.find((m: any) => m.type === 'way' && m.ref === selectedWay.id);
+          if (member) {
+            // Check role first (e.g. role="north", role="N")
+            const role = member.role ? member.role.toUpperCase() : '';
+            if (['NORTH', 'SOUTH', 'EAST', 'WEST'].includes(role)) {
+              extractedDirection = role;
+              break;
+            } else if (role === 'N') { extractedDirection = 'NORTH'; break; }
+            else if (role === 'S') { extractedDirection = 'SOUTH'; break; }
+            else if (role === 'E') { extractedDirection = 'EAST'; break; }
+            else if (role === 'W') { extractedDirection = 'WEST'; break; }
+
+            // Check relation direction tag (e.g. direction="east")
+            const relDir = rel.tags.direction ? rel.tags.direction.toUpperCase() : '';
+            if (['NORTH', 'SOUTH', 'EAST', 'WEST'].includes(relDir)) {
+              extractedDirection = relDir;
+              break;
+            } else if (relDir === 'N') { extractedDirection = 'NORTH'; break; }
+            else if (relDir === 'S') { extractedDirection = 'SOUTH'; break; }
+            else if (relDir === 'E') { extractedDirection = 'EAST'; break; }
+            else if (relDir === 'W') { extractedDirection = 'WEST'; break; }
+
+            // Check relation name for parenthesized direction, e.g. "Interstate 80 (East)"
+            const name = rel.tags.name || '';
+            const nameMatch = name.match(/\((North|South|East|West|N|S|E|W)\)/i);
+            if (nameMatch) {
+              const matchedDir = nameMatch[1].toUpperCase();
+              if (['NORTH', 'SOUTH', 'EAST', 'WEST'].includes(matchedDir)) {
+                extractedDirection = matchedDir;
+                break;
+              } else if (matchedDir === 'N') { extractedDirection = 'NORTH'; break; }
+              else if (matchedDir === 'S') { extractedDirection = 'SOUTH'; break; }
+              else if (matchedDir === 'E') { extractedDirection = 'EAST'; break; }
+              else if (matchedDir === 'W') { extractedDirection = 'WEST'; break; }
+            }
+          }
+        }
+      }
+
       const result: OverpassRoadData = {
         maxspeed: selectedWay.tags.maxspeed || null,
         highway: selectedWay.tags.highway || null,
         name: selectedWay.tags.name || null,
         ref: extractedRef,
+        direction: extractedDirection,
         confident: hasMaxspeed || hasHighway,
       };
       overpassCache = { lat, lon, result, timestamp: Date.now() };
