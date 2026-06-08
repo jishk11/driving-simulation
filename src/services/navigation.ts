@@ -477,6 +477,7 @@ export interface WeatherData {
   icon: string;
   sunrise?: string;
   sunset?: string;
+  timezoneOffset?: number;
 }
 
 /**
@@ -500,8 +501,9 @@ export async function fetchCurrentWeather(lat: number, lon: number): Promise<Wea
 
     const sunrise = data.daily?.sunrise?.[0] || undefined;
     const sunset = data.daily?.sunset?.[0] || undefined;
+    const timezoneOffset = data.utc_offset_seconds;
 
-    return { temp, code, text, icon, sunrise, sunset };
+    return { temp, code, text, icon, sunrise, sunset, timezoneOffset };
   } catch (error) {
     console.error('Weather service error:', error);
     return null;

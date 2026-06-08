@@ -446,7 +446,10 @@ function App() {
   const isDstActive = systemDate.getTimezoneOffset() < Math.max(jan, jul);
   
   const baseOffset = Math.round(activeLongitude / 15);
-  const offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
+  let offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
+  if (weather && typeof weather.timezoneOffset === 'number') {
+    offsetHours = weather.timezoneOffset / 3600;
+  }
   
   // Calculate local hour & decimal time at coordinate based on UTC real time
   const utcHours = realDate.getUTCHours();
