@@ -589,10 +589,10 @@ function App() {
         />
         
         {/* Ambient Twilight Gradients (Cross-fading with pointer-events-none) */}
-        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-indigo-950/45 via-purple-900/30 to-rose-500/20 ${
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#1a233d]/60 via-[#6c5b7b]/40 to-[#f8b195]/30 ${
           ambientMode === 'dawn' ? 'opacity-100' : 'opacity-0'
         }`} />
-        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-t from-orange-600/20 via-rose-900/30 to-indigo-950/45 ${
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#2e3856]/60 via-[#796782]/45 to-[#b98380]/40 ${
           ambientMode === 'dusk' ? 'opacity-100' : 'opacity-0'
         }`} />
         <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-slate-950/15 ${
@@ -609,9 +609,9 @@ function App() {
           ambientMode === 'day'
             ? 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
             : ambientMode === 'dawn'
-            ? 'bg-indigo-950/80 border-indigo-500/30 text-indigo-100 shadow-indigo-950/50'
+            ? 'bg-[#1a233d]/80 border-[#f8b195]/30 text-[#f8b195] shadow-indigo-950/50'
             : ambientMode === 'dusk'
-            ? 'bg-slate-900/80 border-amber-500/30 text-amber-100 shadow-orange-950/50'
+            ? 'bg-[#2e3856]/80 border-[#b98380]/30 text-[#b98380] shadow-black/50'
             : 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50'
         }`}>
           {currentStreetRef && (
