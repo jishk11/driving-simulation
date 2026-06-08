@@ -300,7 +300,7 @@ export async function fetchNearestRoadData(
       return overpassCache.result;
     }
   }
-  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"]->.w;(.w;rel(bw.w););out tags;`;
+  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"]->.w;(.w;rel(bw.w););out;`;
 
   // Try our Vercel edge rewrite proxy first (avoids CORS on production).
   // The rewrite transparently forwards the POST to overpass.openstreetmap.fr.
