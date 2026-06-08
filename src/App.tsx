@@ -467,16 +467,41 @@ function App() {
     return hr + min / 60;
   };
 
-  let calculatedDarkMode = false;
+  // Define Twilight buffer constant (45 minutes = 0.75 hours)
+  const TWILIGHT_WINDOW = 0.75;
+  let ambientMode: 'day' | 'night' | 'dawn' | 'dusk' = 'day';
+
   if (weather && weather.sunrise && weather.sunset) {
     const sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
     const sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
-    calculatedDarkMode = localRealTimeDecimal < sunriseDecimal || localRealTimeDecimal > sunsetDecimal;
+    
+    if (localRealTimeDecimal >= sunriseDecimal - TWILIGHT_WINDOW && localRealTimeDecimal < sunriseDecimal) {
+      ambientMode = 'dawn';
+    } else if (localRealTimeDecimal >= sunriseDecimal && localRealTimeDecimal <= sunsetDecimal) {
+      ambientMode = 'day';
+    } else if (localRealTimeDecimal > sunsetDecimal && localRealTimeDecimal <= sunsetDecimal + TWILIGHT_WINDOW) {
+      ambientMode = 'dusk';
+    } else {
+      ambientMode = 'night';
+    }
   } else {
-    // Graceful fallback to mathematical solar time
-    calculatedDarkMode = localRealHour < 6 || localRealHour >= 20;
+    // Graceful fallback to mathematical solar time (assuming Sunrise = 6:00 AM, Sunset = 8:00 PM)
+    const fallbackSunrise = 6.0;
+    const fallbackSunset = 20.0;
+    
+    if (localRealTimeDecimal >= fallbackSunrise - TWILIGHT_WINDOW && localRealTimeDecimal < fallbackSunrise) {
+      ambientMode = 'dawn';
+    } else if (localRealTimeDecimal >= fallbackSunrise && localRealTimeDecimal <= fallbackSunset) {
+      ambientMode = 'day';
+    } else if (localRealTimeDecimal > fallbackSunset && localRealTimeDecimal <= fallbackSunset + TWILIGHT_WINDOW) {
+      ambientMode = 'dusk';
+    } else {
+      ambientMode = 'night';
+    }
   }
-  const isDarkMode = calculatedDarkMode;
+
+  // NIGHT, DAWN, and DUSK all resolve to dark mode for compatibility with standard component styles
+  const isDarkMode = ambientMode === 'night' || ambientMode === 'dawn' || ambientMode === 'dusk';
 
   const speedLimitMph = speedLimitMps > 0 
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
@@ -562,6 +587,18 @@ function App() {
           lockCamera={lockCamera}
           isDarkMode={isDarkMode}
         />
+        
+        {/* Ambient Twilight Gradients (Cross-fading with pointer-events-none) */}
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-indigo-950/45 via-purple-900/30 to-rose-500/20 ${
+          ambientMode === 'dawn' ? 'opacity-100' : 'opacity-0'
+        }`} />
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-t from-orange-600/20 via-rose-900/30 to-indigo-950/45 ${
+          ambientMode === 'dusk' ? 'opacity-100' : 'opacity-0'
+        }`} />
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-slate-950/15 ${
+          ambientMode === 'night' ? 'opacity-100' : 'opacity-0'
+        }`} />
+
         {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
         <WeatherOverlay weather={weather} isDarkMode={isDarkMode} />
       </div>
@@ -569,9 +606,13 @@ function App() {
       {/* Floating Street Name UI (Bottom Middle) */}
       {(status === 'driving' || status === 'paused') && (currentStreetName || currentStreetRef) && (
         <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${
-          isDarkMode 
-            ? 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50' 
-            : 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
+          ambientMode === 'day'
+            ? 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
+            : ambientMode === 'dawn'
+            ? 'bg-indigo-950/80 border-indigo-500/30 text-indigo-100 shadow-indigo-950/50'
+            : ambientMode === 'dusk'
+            ? 'bg-slate-900/80 border-amber-500/30 text-amber-100 shadow-orange-950/50'
+            : 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50'
         }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
