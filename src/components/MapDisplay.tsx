@@ -120,7 +120,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   };
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative z-0">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
