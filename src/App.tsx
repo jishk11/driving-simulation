@@ -475,12 +475,12 @@ function App() {
     const sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
     const sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
     
-    if (localRealTimeDecimal >= sunriseDecimal - TWILIGHT_WINDOW && localRealTimeDecimal < sunriseDecimal) {
+    if (localRealTimeDecimal >= sunriseDecimal - TWILIGHT_WINDOW && localRealTimeDecimal <= sunriseDecimal + TWILIGHT_WINDOW) {
       ambientMode = 'dawn';
-    } else if (localRealTimeDecimal >= sunriseDecimal && localRealTimeDecimal <= sunsetDecimal) {
-      ambientMode = 'day';
-    } else if (localRealTimeDecimal > sunsetDecimal && localRealTimeDecimal <= sunsetDecimal + TWILIGHT_WINDOW) {
+    } else if (localRealTimeDecimal >= sunsetDecimal - TWILIGHT_WINDOW && localRealTimeDecimal <= sunsetDecimal + TWILIGHT_WINDOW) {
       ambientMode = 'dusk';
+    } else if (localRealTimeDecimal > sunriseDecimal + TWILIGHT_WINDOW && localRealTimeDecimal < sunsetDecimal - TWILIGHT_WINDOW) {
+      ambientMode = 'day';
     } else {
       ambientMode = 'night';
     }
@@ -489,12 +489,12 @@ function App() {
     const fallbackSunrise = 6.0;
     const fallbackSunset = 20.0;
     
-    if (localRealTimeDecimal >= fallbackSunrise - TWILIGHT_WINDOW && localRealTimeDecimal < fallbackSunrise) {
+    if (localRealTimeDecimal >= fallbackSunrise - TWILIGHT_WINDOW && localRealTimeDecimal <= fallbackSunrise + TWILIGHT_WINDOW) {
       ambientMode = 'dawn';
-    } else if (localRealTimeDecimal >= fallbackSunrise && localRealTimeDecimal <= fallbackSunset) {
-      ambientMode = 'day';
-    } else if (localRealTimeDecimal > fallbackSunset && localRealTimeDecimal <= fallbackSunset + TWILIGHT_WINDOW) {
+    } else if (localRealTimeDecimal >= fallbackSunset - TWILIGHT_WINDOW && localRealTimeDecimal <= fallbackSunset + TWILIGHT_WINDOW) {
       ambientMode = 'dusk';
+    } else if (localRealTimeDecimal > fallbackSunrise + TWILIGHT_WINDOW && localRealTimeDecimal < fallbackSunset - TWILIGHT_WINDOW) {
+      ambientMode = 'day';
     } else {
       ambientMode = 'night';
     }
