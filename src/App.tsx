@@ -501,17 +501,20 @@ function App() {
     }
 
     // Lock the cardinal bound the first time we enter a new highway.
-    // To prevent locking in a bad direction due to a curved "cloverleaf" onramp,
-    // we calculate the "macro bearing" by looking up to 50 coordinate segments into the future!
+    // To prevent locking in a bad direction due to local curves or cloverleafs,
+    // we calculate the "macro bearing" by looking up to 500 coordinate segments into the future!
     if (_ref !== lastSeenRefRef.current) {
       lastSeenRefRef.current = _ref;
       
-      const p1 = routeData[currentIndex];
-      const lookAheadIndex = Math.min(currentIndex + 50, routeData.length - 1);
+      let p1 = routeData[currentIndex];
+      const lookAheadIndex = Math.min(currentIndex + 500, routeData.length - 1);
+      if (lookAheadIndex === currentIndex && currentIndex > 0) {
+        p1 = routeData[currentIndex - 1];
+      }
       const p2 = routeData[lookAheadIndex];
       
       let bound = '';
-      if (p1 && p2) {
+      if (p1 && p2 && (p1[0] !== p2[0] || p1[1] !== p2[1])) {
         const macroBearing = calculateBearing(p1, p2);
         
         // Clean ref to examine the primary route identifier
