@@ -18,6 +18,7 @@ interface DashboardProps {
   weather: WeatherData | null;
   isDarkMode: boolean;
   isSpeedLimitFallback: boolean;
+  showNightIcons: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -36,6 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   weather,
   isDarkMode,
   isSpeedLimitFallback,
+  showNightIcons,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -72,6 +74,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const estimatedTotalSec = elapsedSec + baseRemainingSec;
   const estimatedTotalHours = Math.floor(estimatedTotalSec / 3600);
   const estimatedTotalMins = Math.floor((estimatedTotalSec % 3600) / 60);
+
+  // Remaining Time Calculations
+  const remainingHours = Math.floor(displayRemainingSec / 3600);
+  const remainingMins = Math.floor((displayRemainingSec % 3600) / 60);
 
   // Formatting helpers
   const formatTime = (totalSeconds: number) => {
@@ -122,12 +128,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const weatherIcon = useMemo(() => {
     if (!weather) return '';
-    if (isDarkMode) {
+    if (showNightIcons) {
       if (weather.icon === '☀️') return '🌙';
       if (weather.icon === '⛅') return '☁️🌙';
     }
     return weather.icon;
-  }, [weather, isDarkMode]);
+  }, [weather, showNightIcons]);
 
   if (distance <= 0) return null;
 
@@ -207,11 +213,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <Route className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Distance</p>
-                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                    {distanceMiles.toFixed(1)} mi
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>
+                    {isDriving ? 'Dist. Remaining' : 'Distance'}
                   </p>
-                  <p className={`text-[10px] ${subTextClass}`}>{distanceKm.toFixed(1)} km</p>
+                  <p className={`text-sm font-bold leading-tight ${statValClass}`}>
+                    {isDriving 
+                      ? `${(distanceMiles * (1 - progressPercent / 100)).toFixed(1)} mi`
+                      : `${distanceMiles.toFixed(1)} mi`}
+                  </p>
+                  <p className={`text-[10px] ${subTextClass}`}>
+                    {isDriving
+                      ? `${(distanceKm * (1 - progressPercent / 100)).toFixed(1)} km`
+                      : `${distanceKm.toFixed(1)} km`}
+                  </p>
                 </div>
               </div>
 
@@ -221,7 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <Gauge className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Velocity</p>
+                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>Speed</p>
                   <p className={`text-sm font-bold leading-tight ${statValClass}`}>
                     {isDriving && !isPaused ? currentSpeedMph.toFixed(0) : '0'} mph
                   </p>
@@ -238,12 +252,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
                 <div>
                   <p className={`text-[10px] uppercase tracking-wider font-semibold ${statLabelClass}`}>
-                    {isTimeWarped ? 'Sim. Total Time' : 'Total Time'}
+                    {isDriving ? 'Time Remaining' : (isTimeWarped ? 'Sim. Total Time' : 'Total Time')}
                   </p>
                   <p className={`text-sm font-bold leading-tight ${statValClass}`}>
-                    {estimatedTotalHours > 0 ? `${estimatedTotalHours}h ` : ''}{estimatedTotalMins}m
+                    {isDriving
+                      ? `${remainingHours > 0 ? `${remainingHours}h ` : ''}${remainingMins}m`
+                      : `${estimatedTotalHours > 0 ? `${estimatedTotalHours}h ` : ''}${estimatedTotalMins}m`}
                   </p>
-                  <p className={`text-[10px] ${subTextClass}`}>{formatTime(estimatedTotalSec)}</p>
+                  <p className={`text-[10px] ${subTextClass}`}>
+                    {isDriving ? formatTime(displayRemainingSec) : formatTime(estimatedTotalSec)}
+                  </p>
                 </div>
               </div>
 
@@ -258,9 +276,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </p>
                   <p className={`text-sm font-bold leading-tight truncate ${statValClass}`}>
                     {etaString}
-                  </p>
-                  <p className={`text-[10px] ${subTextClass}`}>
-                    -{formatTime(displayRemainingSec)}
                   </p>
                 </div>
               </div>

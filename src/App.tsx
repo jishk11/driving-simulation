@@ -170,6 +170,19 @@ function App() {
         setCarBearing(initialBearing);
       }
 
+      // Fetch initial weather for the origin immediately so ambient mode (day/night) updates
+      fetchCurrentWeather(firstCoord[0], firstCoord[1])
+        .then((weatherData) => {
+          if (weatherData) {
+            setWeather(weatherData);
+            lastWeatherQueryTime.current = Date.now();
+            lastWeatherPosition.current = firstCoord;
+          }
+        })
+        .catch((err) => {
+          console.error('Initial weather fetch failed:', err);
+        });
+
       setStatus('ready');
     } catch (err) {
       console.error(err);
@@ -195,11 +208,8 @@ function App() {
     lastQuerySegmentIndex.current = -1;
     isFetchingOverpass.current = false;
     
-    // Reset Weather refs
-    lastWeatherQueryTime.current = 0;
-    lastWeatherPosition.current = null;
+    // Reset Weather refs (keep the initial weather fetched at route calculation to avoid theme flashes)
     isFetchingWeather.current = false;
-    setWeather(null);
   };
 
   // Pause simulation
@@ -471,9 +481,12 @@ function App() {
   const TWILIGHT_WINDOW = 0.75;
   let ambientMode: 'day' | 'night' | 'dawn' | 'dusk' = 'day';
 
+  let sunriseDecimal = 6.0;
+  let sunsetDecimal = 20.0;
+
   if (weather && weather.sunrise && weather.sunset) {
-    const sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
-    const sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
+    sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
+    sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
     
     if (localRealTimeDecimal >= sunriseDecimal - TWILIGHT_WINDOW && localRealTimeDecimal <= sunriseDecimal + TWILIGHT_WINDOW) {
       ambientMode = 'dawn';
@@ -498,7 +511,12 @@ function App() {
     } else {
       ambientMode = 'night';
     }
+    sunriseDecimal = fallbackSunrise;
+    sunsetDecimal = fallbackSunset;
   }
+
+  // Night weather icons are shown if local time is before sunrise or after sunset
+  const showNightIcons = localRealTimeDecimal <= sunriseDecimal || localRealTimeDecimal >= sunsetDecimal;
 
   // NIGHT, DAWN, and DUSK all resolve to dark mode for compatibility with standard component styles
   const isDarkMode = ambientMode === 'night' || ambientMode === 'dawn' || ambientMode === 'dusk';
@@ -586,6 +604,8 @@ function App() {
           carBearing={carBearing}
           lockCamera={lockCamera}
           isDarkMode={isDarkMode}
+          ambientMode={ambientMode}
+          status={status}
         />
         
         {/* Ambient Twilight Gradients (Cross-fading with pointer-events-none) */}
@@ -669,17 +689,18 @@ function App() {
           elapsedMs={trueElapsedMs}
           virtualProgressMs={virtualProgressMs}
           isDriving={status === 'driving' || status === 'paused'}
-        isPaused={status === 'paused'}
-        isCompleted={status === 'completed'}
-        speedMultiplier={speedMultiplier}
-        setSpeedMultiplier={handleSetSpeedMultiplier}
-        lockCamera={lockCamera}
-        setLockCamera={setLockCamera}
-        currentSpeedMph={currentSpeedMph}
-        weather={weather}
-        isDarkMode={isDarkMode}
-        isSpeedLimitFallback={isSpeedLimitFallback}
-      />
+          isPaused={status === 'paused'}
+          isCompleted={status === 'completed'}
+          speedMultiplier={speedMultiplier}
+          setSpeedMultiplier={handleSetSpeedMultiplier}
+          lockCamera={lockCamera}
+          setLockCamera={setLockCamera}
+          currentSpeedMph={currentSpeedMph}
+          weather={weather}
+          isDarkMode={isDarkMode}
+          isSpeedLimitFallback={isSpeedLimitFallback}
+          showNightIcons={showNightIcons}
+        />
     </div>
   );
 }
