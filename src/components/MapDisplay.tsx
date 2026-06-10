@@ -97,7 +97,12 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     if (!containerRef.current) return;
 
     const tilesUrls = isDarkMode
-      ? ["https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}@2x.png"]
+      ? [
+          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+        ]
       : [
           "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
           "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
@@ -119,7 +124,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
             tileSize: 256,
             minzoom: 0,
             maxzoom: 20, // Tell MapLibre source has tiles up to zoom 20
-            attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
           },
           'passed-route': {
             type: 'geojson',
@@ -214,7 +219,12 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       if (source && 'setTiles' in source) {
         (source as any).setTiles(
           isDarkMode
-            ? ["https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}@2x.png"]
+            ? [
+                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+                "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+                "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
+              ]
             : [
                 "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
                 "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
