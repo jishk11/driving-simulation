@@ -190,8 +190,12 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     // Listen to zoom and camera changes to dynamically position and scale the atmospheric halo
     const updateHalo = () => {
       setZoomLevel(newMap.getZoom());
-      const centerPoint = newMap.project(newMap.getCenter());
-      setHaloCenter({ x: centerPoint.x, y: centerPoint.y });
+      // The 3D globe sphere is always visually centered in the viewport container,
+      // regardless of which geographic coordinate is facing the viewer.
+      // Use the container's own center instead of map.project(map.getCenter()),
+      // which drifts when the globe is rotated.
+      const container = newMap.getContainer();
+      setHaloCenter({ x: container.clientWidth / 2, y: container.clientHeight / 2 });
     };
 
     newMap.on('zoom', updateHalo);
