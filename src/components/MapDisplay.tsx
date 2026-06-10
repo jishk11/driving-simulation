@@ -26,7 +26,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(4);
-  const [haloCenter, setHaloCenter] = useState({ x: 0, y: 0 });
+
 
   // Calculate globe diameter at current zoom level. MapLibre's base world dimension at zoom 0 is 512px.
   const globeDiameter = useMemo(() => {
@@ -187,24 +187,20 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     // Add compact attribution to the bottom right
     newMap.addControl(new maplibregl.AttributionControl({ compact: true }));
 
-    // Listen to zoom and camera changes to dynamically position and scale the atmospheric halo
-    const updateHalo = () => {
-      setZoomLevel(newMap.getZoom());
-      // The 3D globe sphere is always visually centered in the viewport container,
-      // regardless of which geographic coordinate is facing the viewer.
-      // Use the container's own center instead of map.project(map.getCenter()),
-      // which drifts when the globe is rotated.
-      const container = newMap.getContainer();
-      setHaloCenter({ x: container.clientWidth / 2, y: container.clientHeight / 2 });
-    };
+    // Track zoom level for halo sizing and fade
+    const updateZoom = () => setZoomLevel(newMap.getZoom());
+    newMap.on('zoom', updateZoom);
+    newMap.on('load', updateZoom);
+    updateZoom();
 
-    newMap.on('zoom', updateHalo);
-    newMap.on('move', updateHalo);
-    newMap.on('resize', updateHalo);
-    newMap.on('load', updateHalo);
-    
-    // Set initial position
-    updateHalo();
+    // Prevent pitch (camera tilt) at globe zoom levels so the sphere stays
+    // visually centered in the viewport and perfectly aligns with the CSS halo.
+    // At navigation zoom levels pitch is allowed for a natural driving POV.
+    newMap.on('pitch', () => {
+      if (newMap.getZoom() < 7) {
+        newMap.setPitch(0);
+      }
+    });
 
     setMap(newMap);
 
@@ -518,8 +514,8 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           <div 
             className="absolute rounded-full"
             style={{
-              left: `${haloCenter.x}px`,
-              top: `${haloCenter.y}px`,
+              left: '50%',
+              top: '50%',
               width: `${globeDiameter * 1.015}px`,
               height: `${globeDiameter * 1.015}px`,
               transform: 'translate(-50%, -50%)',
