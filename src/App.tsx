@@ -540,7 +540,7 @@ function App() {
       lastSeenRefRef.current = _ref;
 
       let p1 = routeData[currentIndex];
-      const lookAheadIndex = Math.min(currentIndex + 500, routeData.length - 1);
+      const lookAheadIndex = Math.min(currentIndex + 50, routeData.length - 1);
       if (lookAheadIndex === currentIndex && currentIndex > 0) {
         p1 = routeData[currentIndex - 1];
       }
