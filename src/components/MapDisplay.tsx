@@ -104,10 +104,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
         ]
       : [
-          "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-          "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-          "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-          "https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"
+          "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+          "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+          "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+          "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
         ];
 
     const newMap = new maplibregl.Map({
@@ -142,7 +142,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
             source: 'basemap-tiles',
             minzoom: 0,
             paint: {
-              'raster-opacity': isDarkMode ? 0.7 : 1.0,
+              'raster-opacity': isDarkMode ? 0.95 : 1.0,
               'raster-fade-duration': 0, // Disable blurry cross-fade for instant sharp snapping
             },
           },
@@ -226,10 +226,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
                 "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
               ]
             : [
-                "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-                "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-                "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-                "https://d.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"
+                "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+                "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+                "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+                "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
               ]
         );
       }
@@ -239,7 +239,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         map.setPaintProperty(
           'basemap-layer',
           'raster-opacity',
-          isDarkMode ? 0.7 : 1.0
+          isDarkMode ? 0.95 : 1.0
         );
       }
 
