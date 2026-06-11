@@ -357,7 +357,7 @@ function App() {
         lastOverpassQueryTime.current = nowOverpass;
         isFetchingOverpass.current = true;
 
-        fetchNearestRoadData(position[0], position[1], osrmSpeedMps)
+        fetchNearestRoadData(position[0], position[1], osrmSpeedMps, bearing)
           .then((result) => {
             isFetchingOverpass.current = false;
             if (result) {

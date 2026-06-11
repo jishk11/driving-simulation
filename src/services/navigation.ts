@@ -1,4 +1,4 @@
-import { parseMaxspeedToMps, getHaversineDistance } from '../utils/geo';
+import { parseMaxspeedToMps, getHaversineDistance, calculateBearing } from '../utils/geo';
 
 export interface GeocodeResult {
   lat: number;
@@ -290,7 +290,8 @@ const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
 export async function fetchNearestRoadData(
   lat: number,
   lon: number,
-  osrmSpeedMps: number
+  osrmSpeedMps: number,
+  carBearing: number
 ): Promise<OverpassRoadData | null> {
   // Check geographic cache first
   if (overpassCache) {
@@ -300,7 +301,7 @@ export async function fetchNearestRoadData(
       return overpassCache.result;
     }
   }
-  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"]->.w;(.w;rel(bw.w););out;`;
+  const query = `[out:json][timeout:5];way(around:50,${lat},${lon})[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"]->.w;(.w;rel(bw.w););out geom;`;
 
   // Try our Vercel edge rewrite proxy first (avoids CORS on production).
   // The rewrite transparently forwards the POST to overpass.openstreetmap.fr.
@@ -357,11 +358,88 @@ export async function fetchNearestRoadData(
       const waysWithMaxspeed = ways.filter((w: any) => w.tags.maxspeed);
       const candidateWays = waysWithMaxspeed.length > 0 ? waysWithMaxspeed : ways;
 
-      // From candidates, pick the one whose speed most closely matches the car's current OSRM segment speed
-      let selectedWay = candidateWays[0];
+      // Trajectory Matching: filter candidate ways based on geographic heading
+      const candidatesWithDetails = candidateWays.map((way: any) => {
+        let minWayDistance = Infinity;
+        let closestSegmentBearing = 0;
+
+        if (way.geometry && way.geometry.length >= 2) {
+          for (let i = 0; i < way.geometry.length - 1; i++) {
+            const nodeA = way.geometry[i];
+            const nodeB = way.geometry[i + 1];
+            const pA: [number, number] = [nodeA.lat, nodeA.lon];
+            const pB: [number, number] = [nodeB.lat, nodeB.lon];
+            const carPos: [number, number] = [lat, lon];
+
+            // Project carPos onto segment pA-pB
+            const latP = carPos[0], lonP = carPos[1];
+            const latA = pA[0], lonA = pA[1];
+            const latB = pB[0], lonB = pB[1];
+
+            const dLat = latB - latA;
+            const dLon = lonB - lonA;
+            const len2 = dLat * dLat + dLon * dLon;
+
+            let t = 0;
+            if (len2 > 0) {
+              t = ((latP - latA) * dLat + (lonP - lonA) * dLon) / len2;
+              t = Math.max(0, Math.min(1, t));
+            }
+
+            const closestLat = latA + t * dLat;
+            const closestLon = lonA + t * dLon;
+            const closestPoint: [number, number] = [closestLat, closestLon];
+            const dist = getHaversineDistance(carPos, closestPoint);
+
+            if (dist < minWayDistance) {
+              minWayDistance = dist;
+              closestSegmentBearing = calculateBearing(pA, pB);
+            }
+          }
+        } else if (way.geometry && way.geometry.length === 1) {
+          const node = way.geometry[0];
+          minWayDistance = getHaversineDistance([lat, lon], [node.lat, node.lon]);
+          closestSegmentBearing = carBearing;
+        } else {
+          minWayDistance = 9999;
+          closestSegmentBearing = carBearing;
+        }
+
+        const angleDiff = Math.abs(carBearing - closestSegmentBearing);
+        const acuteDiff = Math.min(angleDiff, 360 - angleDiff, Math.abs(180 - angleDiff));
+
+        return {
+          way,
+          distance: minWayDistance,
+          bearing: closestSegmentBearing,
+          acuteDiff,
+        };
+      });
+
+      // Filter out candidates with a bearing difference of > 35 degrees
+      const alignedCandidates = candidatesWithDetails.filter(c => c.acuteDiff <= 35);
+
+      let finalCandidateWays: any[] = [];
+      if (alignedCandidates.length > 0) {
+        finalCandidateWays = alignedCandidates.map(c => c.way);
+      } else {
+        // Fallback to the physically closest way
+        let closestWay = candidatesWithDetails[0]?.way || null;
+        let minPhysicalDist = Infinity;
+        for (const item of candidatesWithDetails) {
+          if (item.distance < minPhysicalDist) {
+            minPhysicalDist = item.distance;
+            closestWay = item.way;
+          }
+        }
+        finalCandidateWays = closestWay ? [closestWay] : candidateWays;
+      }
+
+      // From final candidates, pick the one whose speed most closely matches the car's current OSRM segment speed
+      let selectedWay = finalCandidateWays[0];
       let minDifference = Infinity;
 
-      for (const way of candidateWays) {
+      for (const way of finalCandidateWays) {
         const parsedSpeed = parseMaxspeedToMps(way.tags.maxspeed, way.tags.highway, osrmSpeedMps);
         const diff = Math.abs(parsedSpeed - osrmSpeedMps);
         if (diff < minDifference) {
