@@ -14,7 +14,7 @@ function App() {
   const [route, setRoute] = useState<[number, number][]>([]);
   const [distance, setDistance] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  
+
   // Speed limits and durations along route segments
   const [speeds, setSpeeds] = useState<number[]>([]);
   const [durations, setDurations] = useState<number[]>([]);
@@ -37,7 +37,7 @@ function App() {
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [currentStreetName, setCurrentStreetName] = useState<string | null>(null);
   const [currentStreetRef, setCurrentStreetRef] = useState<string | null>(null);
-  const [currentStreetDirection, setCurrentStreetDirection] = useState<string | null>(null);
+  const [currentStreetNominalAxis, setCurrentStreetNominalAxis] = useState<'NS' | 'EW' | null>(null);
 
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -150,18 +150,18 @@ function App() {
       setDuration(routeData.duration);
       setSpeeds(routeData.speeds);
       setDurations(routeData.durations);
-      
+
       const cumDurs = buildCumulativeDurations(routeData.durations);
       setCumulativeDurations(cumDurs);
 
       // Set initial car position & bearing & fallback speed limit
       const firstCoord = routeData.coordinates[0];
       setCarPosition(firstCoord);
-      
+
       const initialFallbackSpeed = parseMaxspeedToMps(null, null, routeData.speeds[0] || 0);
       setSpeedLimitMps(initialFallbackSpeed);
       setIsSpeedLimitFallback(true);
-      
+
       if (routeData.coordinates.length > 1) {
         const nextCoord = routeData.coordinates[1];
         const dy = nextCoord[0] - firstCoord[0];
@@ -202,12 +202,12 @@ function App() {
     setLastUpdateRealTime(time);
     setTrueElapsedMs(0);
     setVirtualProgressMs(0);
-    
+
     // Reset Overpass refs
     lastOverpassQueryTime.current = 0;
     lastQuerySegmentIndex.current = -1;
     isFetchingOverpass.current = false;
-    
+
     // Reset Weather refs (keep the initial weather fetched at route calculation to avoid theme flashes)
     isFetchingWeather.current = false;
   };
@@ -217,12 +217,12 @@ function App() {
     if (status !== 'driving') return;
     const now = Date.now();
     const currentRef = stateRef.current;
-    
+
     // Checkpoint the elapsed progress up to this exact millisecond
     const deltaReal = now - currentRef.lastUpdateRealTime;
     const addedTrueMs = deltaReal * currentRef.speedMultiplier;
     const addedVirtualMs = addedTrueMs * liveTrafficRef.current.multiplier;
-    
+
     setTrueElapsedMs(currentRef.trueElapsedMs + addedTrueMs);
     setVirtualProgressMs(currentRef.virtualProgressMs + addedVirtualMs);
 
@@ -248,14 +248,14 @@ function App() {
 
     const now = Date.now();
     const currentRef = stateRef.current;
-    
+
     const deltaReal = now - currentRef.lastUpdateRealTime;
     const addedTrueMs = deltaReal * currentRef.speedMultiplier;
     const addedVirtualMs = addedTrueMs * liveTrafficRef.current.multiplier;
 
     setTrueElapsedMs(currentRef.trueElapsedMs + addedTrueMs);
     setVirtualProgressMs(currentRef.virtualProgressMs + addedVirtualMs);
-    
+
     setLastUpdateRealTime(now);
     setSpeedMultiplier(newMultiplier);
   };
@@ -280,9 +280,9 @@ function App() {
     setCurrentSegmentIndex(0);
     setCurrentStreetName(null);
     setCurrentStreetRef(null);
-    setCurrentStreetDirection(null);
+    setCurrentStreetNominalAxis(null);
     setWeather(null);
-    
+
     lastOverpassQueryTime.current = 0;
     lastQuerySegmentIndex.current = -1;
     isFetchingOverpass.current = false;
@@ -366,13 +366,13 @@ function App() {
               setIsSpeedLimitFallback(!result.confident);
               setCurrentStreetName(result.name || null);
               setCurrentStreetRef(result.ref || null);
-              setCurrentStreetDirection(result.direction || null);
+              setCurrentStreetNominalAxis(result.nominalAxis || null);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
               setSpeedLimitMps(fallbackSpeed);
               setIsSpeedLimitFallback(true);
-              setCurrentStreetDirection(null);
+              setCurrentStreetNominalAxis(null);
             }
           })
           .catch((err) => {
@@ -440,7 +440,7 @@ function App() {
   // Calculate Dynamic Day/Night state based on real-world local time at car's longitude
   const realTime = Date.now();
   const realDate = new Date(realTime);
-  
+
   // Use current car position, staged route origin, or default center of the US
   let activeLongitude = -95.7129; // default center of US
   if (carPosition) {
@@ -448,19 +448,19 @@ function App() {
   } else if (route.length > 0) {
     activeLongitude = route[0][1];
   }
-  
+
   // Detect if browser system is currently in DST to adjust solar time
   const systemDate = new Date();
   const jan = new Date(systemDate.getFullYear(), 0, 1).getTimezoneOffset();
   const jul = new Date(systemDate.getFullYear(), 6, 1).getTimezoneOffset();
   const isDstActive = systemDate.getTimezoneOffset() < Math.max(jan, jul);
-  
+
   const baseOffset = Math.round(activeLongitude / 15);
   let offsetHours = isDstActive ? baseOffset + 1 : baseOffset;
   if (weather && typeof weather.timezoneOffset === 'number') {
     offsetHours = weather.timezoneOffset / 3600;
   }
-  
+
   // Calculate local hour & decimal time at coordinate based on UTC real time
   const utcHours = realDate.getUTCHours();
   const utcMinutes = realDate.getUTCMinutes();
@@ -487,7 +487,7 @@ function App() {
   if (weather && weather.sunrise && weather.sunset) {
     sunriseDecimal = parseLocalTimeDecimal(weather.sunrise);
     sunsetDecimal = parseLocalTimeDecimal(weather.sunset);
-    
+
     if (localRealTimeDecimal >= sunriseDecimal - TWILIGHT_WINDOW && localRealTimeDecimal <= sunriseDecimal + TWILIGHT_WINDOW) {
       ambientMode = 'dawn';
     } else if (localRealTimeDecimal >= sunsetDecimal - TWILIGHT_WINDOW && localRealTimeDecimal <= sunsetDecimal + TWILIGHT_WINDOW) {
@@ -501,7 +501,7 @@ function App() {
     // Graceful fallback to mathematical solar time (assuming Sunrise = 6:00 AM, Sunset = 8:00 PM)
     const fallbackSunrise = 6.0;
     const fallbackSunset = 20.0;
-    
+
     if (localRealTimeDecimal >= fallbackSunrise - TWILIGHT_WINDOW && localRealTimeDecimal <= fallbackSunrise + TWILIGHT_WINDOW) {
       ambientMode = 'dawn';
     } else if (localRealTimeDecimal >= fallbackSunset - TWILIGHT_WINDOW && localRealTimeDecimal <= fallbackSunset + TWILIGHT_WINDOW) {
@@ -521,64 +521,41 @@ function App() {
   // NIGHT, DAWN, and DUSK all resolve to dark mode for compatibility with standard component styles
   const isDarkMode = ambientMode === 'night' || ambientMode === 'dawn' || ambientMode === 'dusk';
 
-  const speedLimitMph = speedLimitMps > 0 
-    ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5) 
+  const speedLimitMph = speedLimitMps > 0
+    ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5)
     : 0;
 
-  const isCoordinateInUS = (lat: number, lon: number): boolean => {
-    // Contiguous US: Lat [24, 50], Lon [-125, -66]
-    const inContiguous = lat >= 24.0 && lat <= 50.0 && lon >= -125.0 && lon <= -66.0;
-    // Alaska: Lat [51, 72], Lon [-180, -120]
-    const inAlaska = lat >= 51.0 && lat <= 72.0 && lon >= -180.0 && lon <= -120.0;
-    // Hawaii: Lat [18, 29], Lon [-180, -150]
-    const inHawaii = lat >= 18.0 && lat <= 29.0 && lon >= -180.0 && lon <= -150.0;
-    
-    return inContiguous || inAlaska || inHawaii;
-  };
-
-  const getHighwayBound = (_ref: string, routeData: [number, number][], currentIndex: number, osmDirection: string | null) => {
+  const getHighwayBound = (
+    _ref: string,
+    routeData: [number, number][],
+    currentIndex: number,
+    nominalAxis: 'NS' | 'EW' | null
+  ) => {
     if (!routeData || routeData.length === 0) return '';
-    
-    // If we have an OSM direction, prioritize it and update the lock
-    if (osmDirection) {
-      lastSeenRefRef.current = _ref;
-      lockedHighwayBoundRef.current = osmDirection;
-      return osmDirection;
-    }
 
     // Lock the cardinal bound the first time we enter a new highway.
     // To prevent locking in a bad direction due to local curves or cloverleafs,
     // we calculate the "macro bearing" by looking up to 500 coordinate segments into the future!
     if (_ref !== lastSeenRefRef.current) {
       lastSeenRefRef.current = _ref;
-      
+
       let p1 = routeData[currentIndex];
       const lookAheadIndex = Math.min(currentIndex + 500, routeData.length - 1);
       if (lookAheadIndex === currentIndex && currentIndex > 0) {
         p1 = routeData[currentIndex - 1];
       }
       const p2 = routeData[lookAheadIndex];
-      
+
       let bound = '';
       if (p1 && p2 && (p1[0] !== p2[0] || p1[1] !== p2[1])) {
         const macroBearing = calculateBearing(p1, p2);
-        
-        // Clean ref to examine the primary route identifier
-        const primaryRef = _ref.split(';')[0];
-        const match = primaryRef.match(/\d+/);
-        
-        // Only apply odd/even highway designation rules if we are driving in the US
-        if (match && isCoordinateInUS(p1[0], p1[1])) {
-          const num = parseInt(match[0], 10);
-          const isEven = num % 2 === 0;
-          
-          if (isEven) {
-            // Even-numbered highways run East-West
-            bound = (macroBearing >= 0 && macroBearing < 180) ? 'EAST' : 'WEST';
-          } else {
-            // Odd-numbered highways run North-South
-            bound = (macroBearing >= 270 || macroBearing < 90) ? 'NORTH' : 'SOUTH';
-          }
+
+        if (nominalAxis === 'NS') {
+          // Force a binary choice: North or South
+          bound = (macroBearing >= 270 || macroBearing < 90) ? 'NORTH' : 'SOUTH';
+        } else if (nominalAxis === 'EW') {
+          // Force a binary choice: East or West
+          bound = (macroBearing >= 0 && macroBearing < 180) ? 'EAST' : 'WEST';
         } else {
           // Fallback to standard 4-way direction based on heading for unnumbered routes and non-US highways
           if (macroBearing >= 315 || macroBearing < 45) bound = 'NORTH';
@@ -607,17 +584,14 @@ function App() {
           ambientMode={ambientMode}
           status={status}
         />
-        
+
         {/* Ambient Twilight Gradients (Cross-fading with pointer-events-none) */}
-        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#1a233d]/60 via-[#6c5b7b]/40 to-[#f8b195]/30 ${
-          ambientMode === 'dawn' ? 'opacity-100' : 'opacity-0'
-        }`} />
-        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#2e3856]/60 via-[#796782]/45 to-[#b98380]/40 ${
-          ambientMode === 'dusk' ? 'opacity-100' : 'opacity-0'
-        }`} />
-        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-slate-950/15 ${
-          ambientMode === 'night' ? 'opacity-100' : 'opacity-0'
-        }`} />
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#1a233d]/60 via-[#6c5b7b]/40 to-[#f8b195]/30 ${ambientMode === 'dawn' ? 'opacity-100' : 'opacity-0'
+          }`} />
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-gradient-to-b from-[#2e3856]/60 via-[#796782]/45 to-[#b98380]/40 ${ambientMode === 'dusk' ? 'opacity-100' : 'opacity-0'
+          }`} />
+        <div className={`absolute inset-0 pointer-events-none z-[10] transition-opacity duration-1000 bg-slate-950/15 ${ambientMode === 'night' ? 'opacity-100' : 'opacity-0'
+          }`} />
 
         {/* Hardware-accelerated Atmospheric weather effects (positioned below HUD card overlays) */}
         <WeatherOverlay weather={weather} isDarkMode={isDarkMode} />
@@ -625,18 +599,17 @@ function App() {
 
       {/* Floating Street Name UI (Bottom Middle) */}
       {(status === 'driving' || status === 'paused') && (currentStreetName || currentStreetRef) && (
-        <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${
-          ambientMode === 'day'
+        <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-2.5 rounded-full flex items-center justify-center gap-2.5 shadow-xl backdrop-blur-md border animate-fade-in transition-all duration-500 ${ambientMode === 'day'
             ? 'bg-white/90 border-slate-200/80 text-slate-900 shadow-slate-300/50'
             : ambientMode === 'dawn'
-            ? 'bg-[#1a233d]/80 border-[#f8b195]/30 text-[#f8b195] shadow-indigo-950/50'
-            : ambientMode === 'dusk'
-            ? 'bg-[#2e3856]/80 border-[#b98380]/30 text-[#b98380] shadow-black/50'
-            : 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50'
-        }`}>
+              ? 'bg-[#1a233d]/80 border-[#f8b195]/30 text-[#f8b195] shadow-indigo-950/50'
+              : ambientMode === 'dusk'
+                ? 'bg-[#2e3856]/80 border-[#b98380]/30 text-[#b98380] shadow-black/50'
+                : 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50'
+          }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetDirection)}
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetNominalAxis)}
             </div>
           )}
           {currentStreetName && (
@@ -649,16 +622,15 @@ function App() {
 
       {/* Floating Speed Limit Sign in Top Right (like Google Maps/Apple Maps) */}
       {(status === 'driving' || status === 'paused') && speedLimitMph > 0 && (
-        <div 
+        <div
           className="absolute top-4 right-4 z-[1000] w-14 h-18 bg-white border-2 border-black rounded-lg shadow-xl flex flex-col items-center justify-center p-1 select-none font-sans text-black leading-none animate-pulse-slow"
           title={`Speed Limit: ${speedLimitMph} mph${isSpeedLimitFallback ? ' (Estimated Fallback)' : ''}`}
         >
           <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>SPEED</span>
           <span className="text-[7px] font-black tracking-tight" style={{ fontSize: '7px' }}>LIMIT</span>
-          <span 
-            className={`text-xl font-black mt-1 tracking-tight flex items-start ${
-              isSpeedLimitFallback ? 'text-amber-600' : 'text-black'
-            }`} 
+          <span
+            className={`text-xl font-black mt-1 tracking-tight flex items-start ${isSpeedLimitFallback ? 'text-amber-600' : 'text-black'
+              }`}
             style={{ fontSize: '20px', fontWeight: 900 }}
           >
             {speedLimitMph}
@@ -683,24 +655,24 @@ function App() {
       />
 
       {/* Glassmorphic Dashboard Panel (Bottom Right) */}
-        <Dashboard
-          distance={distance}
-          duration={duration}
-          elapsedMs={trueElapsedMs}
-          virtualProgressMs={virtualProgressMs}
-          isDriving={status === 'driving' || status === 'paused'}
-          isPaused={status === 'paused'}
-          isCompleted={status === 'completed'}
-          speedMultiplier={speedMultiplier}
-          setSpeedMultiplier={handleSetSpeedMultiplier}
-          lockCamera={lockCamera}
-          setLockCamera={setLockCamera}
-          currentSpeedMph={currentSpeedMph}
-          weather={weather}
-          isDarkMode={isDarkMode}
-          isSpeedLimitFallback={isSpeedLimitFallback}
-          showNightIcons={showNightIcons}
-        />
+      <Dashboard
+        distance={distance}
+        duration={duration}
+        elapsedMs={trueElapsedMs}
+        virtualProgressMs={virtualProgressMs}
+        isDriving={status === 'driving' || status === 'paused'}
+        isPaused={status === 'paused'}
+        isCompleted={status === 'completed'}
+        speedMultiplier={speedMultiplier}
+        setSpeedMultiplier={handleSetSpeedMultiplier}
+        lockCamera={lockCamera}
+        setLockCamera={setLockCamera}
+        currentSpeedMph={currentSpeedMph}
+        weather={weather}
+        isDarkMode={isDarkMode}
+        isSpeedLimitFallback={isSpeedLimitFallback}
+        showNightIcons={showNightIcons}
+      />
     </div>
   );
 }

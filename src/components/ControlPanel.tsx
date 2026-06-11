@@ -161,7 +161,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               </span>
               <input
                 type="text"
-                placeholder="Origin (e.g. San Diego, CA)"
+                placeholder="Origin (e.g. Los Angeles, CA)"
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
                 onFocus={() => {
