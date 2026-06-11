@@ -417,11 +417,11 @@ export async function fetchNearestRoadData(
       });
 
       // Filter out candidates with a bearing difference of > 35 degrees
-      const alignedCandidates = candidatesWithDetails.filter(c => c.acuteDiff <= 35);
+      const alignedCandidates = candidatesWithDetails.filter((c: any) => c.acuteDiff <= 35);
 
       let finalCandidateWays: any[] = [];
       if (alignedCandidates.length > 0) {
-        finalCandidateWays = alignedCandidates.map(c => c.way);
+        finalCandidateWays = alignedCandidates.map((c: any) => c.way);
       } else {
         // Fallback to the physically closest way
         let closestWay = candidatesWithDetails[0]?.way || null;
