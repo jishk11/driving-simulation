@@ -92,90 +92,22 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     }
   };
 
+  const isDarkModeRef = useRef(isDarkMode);
+  useEffect(() => {
+    isDarkModeRef.current = isDarkMode;
+  }, [isDarkMode]);
+
   // 1. Initialize MapLibre GL Map
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const tilesUrls = isDarkMode
-      ? [
-          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-          "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-        ]
-      : [
-          "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-          "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-          "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-          "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
-        ];
+    const initialStyleUrl = isDarkModeRef.current
+      ? "https://tiles.openfreemap.org/styles/dark"
+      : "https://tiles.openfreemap.org/styles/liberty";
 
     const newMap = new maplibregl.Map({
       container: containerRef.current,
-      style: {
-        version: 8,
-        projection: {
-          type: 'globe',
-        },
-        sources: {
-          'basemap-tiles': {
-            type: 'raster',
-            tiles: tilesUrls,
-            tileSize: 256,
-            minzoom: 0,
-            maxzoom: 20, // Tell MapLibre source has tiles up to zoom 20
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          },
-          'passed-route': {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] },
-          },
-          'upcoming-route': {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] },
-          },
-        },
-        layers: [
-          {
-            id: 'basemap-layer',
-            type: 'raster',
-            source: 'basemap-tiles',
-            minzoom: 0,
-            paint: {
-              'raster-opacity': isDarkMode ? 0.95 : 1.0,
-              'raster-fade-duration': 0, // Disable blurry cross-fade for instant sharp snapping
-            },
-          },
-          {
-            id: 'passed-route-layer',
-            type: 'line',
-            source: 'passed-route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': isDarkMode ? '#cbd5e1' : '#475569',
-              'line-width': 5,
-              'line-opacity': isDarkMode ? 0.75 : 0.6,
-            },
-          },
-          {
-            id: 'upcoming-route-layer',
-            type: 'line',
-            source: 'upcoming-route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#3b82f6',
-              'line-width': 5,
-              'line-opacity': 0.75,
-            },
-          },
-        ],
-      },
+      style: initialStyleUrl,
       center: [-95.7129, 37.0902], // Center of US (longitude, latitude)
       zoom: 4,
       minZoom: 2, // Prevent zooming out excessively
@@ -183,6 +115,69 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       attributionControl: false,
       fadeDuration: 0, // Disable label collision fade-in lag
     });
+
+    const addRouteLayers = () => {
+      newMap.setProjection({ type: 'globe' });
+
+      // Add our custom route layers
+      if (!newMap.getSource('passed-route')) {
+        newMap.addSource('passed-route', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!newMap.getSource('upcoming-route')) {
+        newMap.addSource('upcoming-route', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!newMap.getLayer('passed-route-layer')) {
+        newMap.addLayer({
+          id: 'passed-route-layer',
+          type: 'line',
+          source: 'passed-route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': isDarkModeRef.current ? '#cbd5e1' : '#475569',
+            'line-width': 5,
+            'line-opacity': isDarkModeRef.current ? 0.75 : 0.6,
+          },
+        });
+      } else {
+        newMap.setPaintProperty(
+          'passed-route-layer',
+          'line-color',
+          isDarkModeRef.current ? '#cbd5e1' : '#475569'
+        );
+        newMap.setPaintProperty(
+          'passed-route-layer',
+          'line-opacity',
+          isDarkModeRef.current ? 0.75 : 0.6
+        );
+      }
+      if (!newMap.getLayer('upcoming-route-layer')) {
+        newMap.addLayer({
+          id: 'upcoming-route-layer',
+          type: 'line',
+          source: 'upcoming-route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 5,
+            'line-opacity': 0.75,
+          },
+        });
+      }
+    };
+
+    newMap.on('style.load', addRouteLayers);
 
     // Add compact attribution to the bottom right
     newMap.addControl(new maplibregl.AttributionControl({ compact: true }));
@@ -215,54 +210,14 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     if (!map) return;
 
     const updateMapTheme = () => {
-      const source = map.getSource('basemap-tiles');
-      if (source && 'setTiles' in source) {
-        (source as any).setTiles(
-          isDarkMode
-            ? [
-                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-                "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-                "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-                "https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-              ]
-            : [
-                "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-                "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-                "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-                "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
-              ]
-        );
-      }
-
-      // Update the basemap layer opacity for blending
-      if (map.getLayer('basemap-layer')) {
-        map.setPaintProperty(
-          'basemap-layer',
-          'raster-opacity',
-          isDarkMode ? 0.95 : 1.0
-        );
-      }
-
-      // Update the passed route line color and opacity for better contrast
-      if (map.getLayer('passed-route-layer')) {
-        map.setPaintProperty(
-          'passed-route-layer',
-          'line-color',
-          isDarkMode ? '#cbd5e1' : '#475569'
-        );
-        map.setPaintProperty(
-          'passed-route-layer',
-          'line-opacity',
-          isDarkMode ? 0.75 : 0.6
-        );
-      }
+      const styleUrl = isDarkMode
+        ? "https://tiles.openfreemap.org/styles/dark"
+        : "https://tiles.openfreemap.org/styles/liberty";
+      
+      map.setStyle(styleUrl);
     };
 
-    if (map.isStyleLoaded()) {
-      updateMapTheme();
-    } else {
-      map.once('style.load', updateMapTheme);
-    }
+    updateMapTheme();
   }, [map, isDarkMode]);
 
   // 3. Zoom-to-Route boundary on load / update of route
