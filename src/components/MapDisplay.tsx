@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 
 interface MapDisplayProps {
@@ -25,13 +25,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(4);
-
-
-  // Calculate globe diameter at current zoom level. MapLibre's base world dimension at zoom 0 is 512px.
-  const globeDiameter = useMemo(() => {
-    return (512 * Math.pow(2, zoomLevel)) / Math.PI;
-  }, [zoomLevel]);
+  const haloRef = useRef<HTMLDivElement>(null);
 
   // Dynamic halo shadow color & spread tailored to each ambient state (day, dawn, dusk, night)
   const haloShadow = useMemo(() => {
@@ -47,6 +41,62 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         return '0 0 70px 22px rgba(99, 102, 241, 0.5), 0 0 30px 8px rgba(59, 130, 246, 0.35), inset 0 0 40px rgba(99, 102, 241, 0.25)';
     }
   }, [ambientMode]);
+
+  // Dynamically calculate the globe's screen size and position in pixels using map.project()
+  const updateHalo = useCallback(() => {
+    if (!map || !haloRef.current) return;
+
+    const zoom = map.getZoom();
+    if (zoom >= 6.5) {
+      haloRef.current.style.opacity = '0';
+      return;
+    }
+
+    const opacity = Math.max(0, Math.min(1, (6.0 - zoom) / 4.0));
+    haloRef.current.style.opacity = opacity.toString();
+    
+    if (opacity <= 0) return;
+
+    try {
+      const center = map.getCenter();
+      const lat = center.lat;
+      const lon = center.lng;
+
+      // Offset latitude by 30 and 60 degrees, keeping within [-90, 90]
+      const latOffset1 = lat >= 0 ? lat - 30 : lat + 30;
+      const latOffset2 = lat >= 0 ? lat - 60 : lat + 60;
+
+      const centerPx = map.project(center);
+      const p1Px = map.project([lon, latOffset1]);
+      const p2Px = map.project([lon, latOffset2]);
+
+      if (!centerPx || !p1Px || !p2Px) return;
+
+      const d1 = Math.hypot(p1Px.x - centerPx.x, p1Px.y - centerPx.y);
+      const d2 = Math.hypot(p2Px.x - centerPx.x, p2Px.y - centerPx.y);
+
+      if (d1 <= 0 || d2 <= 0) return;
+
+      const r = d1 / d2;
+      const denom = 0.866025403 * r - 0.288675134;
+      if (Math.abs(denom) < 0.0001) return;
+
+      let k = (r - 0.577350269) / denom;
+      k = Math.max(0, Math.min(0.99, k));
+
+      const rScreen = (2 * d1 * (1 - 0.866025403 * k)) / Math.sqrt(1 - k * k);
+      const diameter = rScreen * 2;
+
+      const finalDiameter = diameter * 1.015;
+
+      haloRef.current.style.width = `${finalDiameter}px`;
+      haloRef.current.style.height = `${finalDiameter}px`;
+      haloRef.current.style.left = `${centerPx.x}px`;
+      haloRef.current.style.top = `${centerPx.y}px`;
+    } catch (err) {
+      console.error("Error updating halo size:", err);
+    }
+  }, [map]);
 
   // Refs to track markers so we can update them in place
   const originMarkerRef = useRef<maplibregl.Marker | null>(null);
@@ -182,12 +232,6 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     // Add compact attribution to the bottom right
     newMap.addControl(new maplibregl.AttributionControl({ compact: true }));
 
-    // Track zoom level for halo sizing and fade
-    const updateZoom = () => setZoomLevel(newMap.getZoom());
-    newMap.on('zoom', updateZoom);
-    newMap.on('load', updateZoom);
-    updateZoom();
-
     // Prevent pitch (camera tilt) at globe zoom levels so the sphere stays
     // visually centered in the viewport and perfectly aligns with the CSS halo.
     // At navigation zoom levels pitch is allowed for a natural driving POV.
@@ -204,6 +248,28 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       setMap(null);
     };
   }, []);
+
+  // Synchronize halo position and scale on camera movement or resizing
+  useEffect(() => {
+    if (!map) return;
+
+    map.on('move', updateHalo);
+    map.on('resize', updateHalo);
+    map.on('style.load', updateHalo);
+
+    updateHalo();
+
+    return () => {
+      map.off('move', updateHalo);
+      map.off('resize', updateHalo);
+      map.off('style.load', updateHalo);
+    };
+  }, [map, updateHalo]);
+
+  // Call updateHalo on every render to ensure React re-renders don't cause visual desyncs
+  useEffect(() => {
+    updateHalo();
+  });
 
   // 2. Synchronize Dark / Light mode tile layers & colors
   useEffect(() => {
@@ -465,23 +531,17 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         />
 
         {/* Dynamic Globe Halo Glow */}
-        {zoomLevel < 6.5 && (
-          <div 
-            className="absolute rounded-full"
-            style={{
-              left: '50%',
-              top: '50%',
-              width: `${globeDiameter * 1.015}px`,
-              height: `${globeDiameter * 1.015}px`,
-              transform: 'translate(-50%, -50%)',
-              opacity: Math.max(0, Math.min(1, (6.0 - zoomLevel) / 4.0)), // Fade out as we zoom in from 2 to 6
-              boxShadow: haloShadow,
-              background: 'transparent',
-              pointerEvents: 'none',
-              transition: 'box-shadow 1s ease, opacity 0.3s ease', // Sizing scales raw during zooming to prevent lagging
-            }}
-          />
-        )}
+        <div 
+          ref={haloRef}
+          className="absolute rounded-full"
+          style={{
+            transform: 'translate(-50%, -50%)',
+            boxShadow: haloShadow,
+            background: 'transparent',
+            pointerEvents: 'none',
+            transition: 'box-shadow 1s ease, opacity 0.3s ease', // Sizing scales raw during zooming to prevent lagging
+          }}
+        />
       </div>
 
       {/* Map container sits on top of background layers, transparent surrounding canvas reveals gradients */}
