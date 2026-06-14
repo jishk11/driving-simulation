@@ -356,23 +356,150 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     }
   }, [map, route, currentSegmentIndex, carPosition, isDarkMode]);
 
+  // Configure highway shields to display on both directions (bounds) of the highway
+  const setupHighwayShields = useCallback(() => {
+    if (!map) return;
+
+    const layersToAdd: any[] = [
+      {
+        id: 'highway-shield-non-us',
+        type: 'symbol' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation_name',
+        minzoom: 8,
+        filter: [
+          'all',
+          ['<=', ['get', 'ref_length'], 6],
+          ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false],
+          ['match', ['get', 'network'], ['us-highway', 'us-interstate', 'us-state'], false, true]
+        ] as any,
+        layout: {
+          'icon-image': ['concat', 'road_', ['get', 'ref_length']],
+          'icon-rotation-alignment': 'viewport' as const,
+          'icon-size': 1,
+          'symbol-placement': ['step', ['zoom'], 'point', 11, 'line'] as any,
+          'symbol-spacing': 200,
+          'text-field': ['to-string', ['get', 'ref']],
+          'text-font': ['Noto Sans Regular'],
+          'text-rotation-alignment': 'viewport' as const,
+          'text-size': 10,
+          // Force rendering on both bounds/directions by ignoring collisions:
+          'icon-allow-overlap': true,
+          'text-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'text-ignore-placement': true
+        },
+        paint: {
+          'text-color': '#ffffff'
+        }
+      },
+      {
+        id: 'highway-shield-us-interstate',
+        type: 'symbol' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation_name',
+        minzoom: 7,
+        filter: [
+          'all',
+          ['<=', ['get', 'ref_length'], 6],
+          ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false],
+          ['match', ['get', 'network'], ['us-interstate'], true, false]
+        ] as any,
+        layout: {
+          'icon-image': ['concat', ['get', 'network'], '_', ['get', 'ref_length']],
+          'icon-rotation-alignment': 'viewport' as const,
+          'icon-size': 1,
+          'symbol-placement': ['step', ['zoom'], 'point', 7, 'line', 8, 'line'] as any,
+          'symbol-spacing': 200,
+          'text-field': ['to-string', ['get', 'ref']],
+          'text-font': ['Noto Sans Regular'],
+          'text-rotation-alignment': 'viewport' as const,
+          'text-size': 10,
+          // Force rendering on both bounds/directions by ignoring collisions:
+          'icon-allow-overlap': true,
+          'text-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'text-ignore-placement': true
+        },
+        paint: {
+          'text-color': '#ffffff'
+        }
+      },
+      {
+        id: 'road_shield_us',
+        type: 'symbol' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation_name',
+        minzoom: 9,
+        filter: [
+          'all',
+          ['<=', ['get', 'ref_length'], 6],
+          ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false],
+          ['match', ['get', 'network'], ['us-highway', 'us-state'], true, false]
+        ] as any,
+        layout: {
+          'icon-image': ['concat', ['get', 'network'], '_', ['get', 'ref_length']],
+          'icon-rotation-alignment': 'viewport' as const,
+          'icon-size': 1,
+          'symbol-placement': ['step', ['zoom'], 'point', 11, 'line'] as any,
+          'symbol-spacing': 200,
+          'text-field': ['to-string', ['get', 'ref']],
+          'text-font': ['Noto Sans Regular'],
+          'text-rotation-alignment': 'viewport' as const,
+          'text-size': 10,
+          // Force rendering on both bounds/directions by ignoring collisions:
+          'icon-allow-overlap': true,
+          'text-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'text-ignore-placement': true
+        },
+        paint: {
+          'text-color': '#000000'
+        }
+      }
+    ];
+
+    layersToAdd.forEach(layerDef => {
+      if (map.getLayer(layerDef.id)) {
+        // If layer exists, update layout settings to bypass collision detection
+        map.setLayoutProperty(layerDef.id, 'icon-allow-overlap', true);
+        map.setLayoutProperty(layerDef.id, 'text-allow-overlap', true);
+        map.setLayoutProperty(layerDef.id, 'icon-ignore-placement', true);
+        map.setLayoutProperty(layerDef.id, 'text-ignore-placement', true);
+      } else {
+        // Otherwise, add the layer to the map style dynamically
+        // Find the first symbol layer (usually labels) to insert the shield layers before them
+        const layers = map.getStyle()?.layers;
+        const firstLabelLayer = layers?.find(l => l.type === 'symbol' && !l.id.includes('shield'));
+        const beforeId = firstLabelLayer ? firstLabelLayer.id : undefined;
+        try {
+          map.addLayer(layerDef, beforeId);
+        } catch (e) {
+          console.error(`Failed to add custom shield layer ${layerDef.id}:`, e);
+        }
+      }
+    });
+  }, [map]);
+
   useEffect(() => {
     if (!map) return;
 
     const handleStyleLoad = () => {
       setupRouteLayersAndData();
+      setupHighwayShields();
     };
 
     map.on('style.load', handleStyleLoad);
 
     if (map.isStyleLoaded()) {
       setupRouteLayersAndData();
+      setupHighwayShields();
     }
 
     return () => {
       map.off('style.load', handleStyleLoad);
     };
-  }, [map, setupRouteLayersAndData]);
+  }, [map, setupRouteLayersAndData, setupHighwayShields]);
 
   // 5. Update Origin & Destination Pins
   useEffect(() => {
