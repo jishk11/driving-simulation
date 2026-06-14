@@ -87,7 +87,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       const rScreen = (2 * d1 * (1 - 0.866025403 * k)) / Math.sqrt(1 - k * k);
       const diameter = rScreen * 2;
 
-      const finalDiameter = diameter * 1.015;
+      const finalDiameter = diameter * 0.995;
 
       haloRef.current.style.width = `${finalDiameter}px`;
       haloRef.current.style.height = `${finalDiameter}px`;
