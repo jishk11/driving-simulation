@@ -152,7 +152,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     if (!containerRef.current) return;
 
     const initialStyleUrl = isDarkModeRef.current
-      ? "https://tiles.openfreemap.org/styles/dark"
+      ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
       : "https://tiles.openfreemap.org/styles/liberty";
 
     const newMap = new maplibregl.Map({
@@ -220,7 +220,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
 
     const updateMapTheme = () => {
       const styleUrl = isDarkMode
-        ? "https://tiles.openfreemap.org/styles/dark"
+        ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         : "https://tiles.openfreemap.org/styles/liberty";
       
       map.setStyle(styleUrl);
