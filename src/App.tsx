@@ -7,6 +7,46 @@ import { geocodeAddress, fetchRoute, fetchNearestRoadData, fetchCurrentWeather }
 import type { WeatherData } from './services/navigation';
 import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance, calculateBearing } from './utils/geo';
 
+// Helper to determine custom styles and text formatting for distinct highway types (Interstate, US, State Route)
+const getShieldStyle = (ref: string) => {
+  const cleanRef = ref.split(';')[0].trim();
+  
+  // Interstate: e.g. "I 80" or "I-80"
+  if (/^I[- ]?\d+/i.test(cleanRef)) {
+    const num = cleanRef.replace(/^I[- ]?/i, '');
+    return {
+      text: `I-${num}`,
+      className: "bg-blue-800 text-white border-t-[5px] border-red-600 rounded shadow-md font-black tracking-wider px-2 py-0.5 text-[10px]",
+    };
+  }
+  
+  // US Highway: e.g. "US 101" or "US-101"
+  if (/^US[- ]?\d+/i.test(cleanRef)) {
+    const num = cleanRef.replace(/^US[- ]?/i, '');
+    return {
+      text: `US-${num}`,
+      className: "bg-white text-slate-900 border-2 border-slate-900 rounded shadow-md font-black tracking-wider px-2 py-0.5 text-[10px]",
+    };
+  }
+  
+  // State Routes: matches 2-letter state prefix followed by a number (e.g. CA-1, NY-9) or SR-xx
+  if (/^(SR|[A-Z]{2})[- ]?\d+/i.test(cleanRef)) {
+    const match = cleanRef.match(/^([A-Z]{2})[- ]?(\d+)/i);
+    const prefix = match ? match[1].toUpperCase() : 'SR';
+    const num = match ? match[2] : cleanRef.replace(/^[A-Z]{2}[- ]?/i, '');
+    return {
+      text: `${prefix}-${num}`,
+      className: "bg-emerald-700 text-white border border-emerald-600 rounded shadow-md font-black tracking-wider px-2 py-0.5 text-[10px]",
+    };
+  }
+  
+  // Default fallback
+  return {
+    text: cleanRef.replace(' ', '-'),
+    className: "bg-slate-750 text-white border border-slate-600 rounded shadow-md font-black tracking-wider px-2 py-0.5 text-[10px]",
+  };
+};
+
 function App() {
   // Navigation & route states
   const [originInput, setOriginInput] = useState('');
@@ -607,11 +647,31 @@ function App() {
                 ? 'bg-[#2e3856]/80 border-[#b98380]/30 text-[#b98380] shadow-black/50'
                 : 'bg-slate-900/80 border-slate-700/60 text-white shadow-black/50'
           }`}>
-          {currentStreetRef && (
-            <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetNominalAxis)}
-            </div>
-          )}
+          {currentStreetRef && (() => {
+            const shield = getShieldStyle(currentStreetRef);
+            const currentBound = getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetNominalAxis);
+            let alternateBound = "";
+            if (currentBound === "NORTH") alternateBound = "SOUTH";
+            else if (currentBound === "SOUTH") alternateBound = "NORTH";
+            else if (currentBound === "EAST") alternateBound = "WEST";
+            else if (currentBound === "WEST") alternateBound = "EAST";
+
+            return (
+              <div className="flex items-center gap-1.5 select-none">
+                {/* Current Direction Shield */}
+                <div className={`${shield.className} flex items-center justify-center`}>
+                  {shield.text} {currentBound}
+                </div>
+                
+                {/* Alternate Direction Shield */}
+                {alternateBound && (
+                  <div className={`${shield.className} opacity-55 hover:opacity-90 transition-opacity duration-300 flex items-center justify-center`}>
+                    {shield.text} {alternateBound}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {currentStreetName && (
             <span className="text-sm font-semibold tracking-wide truncate max-w-[300px]">
               {currentStreetName}
