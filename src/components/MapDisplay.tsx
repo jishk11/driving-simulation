@@ -166,68 +166,11 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       fadeDuration: 0, // Disable label collision fade-in lag
     });
 
-    const addRouteLayers = () => {
+    const onStyleLoad = () => {
       newMap.setProjection({ type: 'globe' });
-
-      // Add our custom route layers
-      if (!newMap.getSource('passed-route')) {
-        newMap.addSource('passed-route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        });
-      }
-      if (!newMap.getSource('upcoming-route')) {
-        newMap.addSource('upcoming-route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        });
-      }
-      if (!newMap.getLayer('passed-route-layer')) {
-        newMap.addLayer({
-          id: 'passed-route-layer',
-          type: 'line',
-          source: 'passed-route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': isDarkModeRef.current ? '#cbd5e1' : '#475569',
-            'line-width': 5,
-            'line-opacity': isDarkModeRef.current ? 0.75 : 0.6,
-          },
-        });
-      } else {
-        newMap.setPaintProperty(
-          'passed-route-layer',
-          'line-color',
-          isDarkModeRef.current ? '#cbd5e1' : '#475569'
-        );
-        newMap.setPaintProperty(
-          'passed-route-layer',
-          'line-opacity',
-          isDarkModeRef.current ? 0.75 : 0.6
-        );
-      }
-      if (!newMap.getLayer('upcoming-route-layer')) {
-        newMap.addLayer({
-          id: 'upcoming-route-layer',
-          type: 'line',
-          source: 'upcoming-route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#3b82f6',
-            'line-width': 5,
-            'line-opacity': 0.75,
-          },
-        });
-      }
     };
 
-    newMap.on('style.load', addRouteLayers);
+    newMap.on('style.load', onStyleLoad);
 
     // Add compact attribution to the bottom right
     newMap.addControl(new maplibregl.AttributionControl({ compact: true }));
@@ -292,73 +235,143 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     fitRoute(map);
   }, [map, route]);
 
-  // 4. Update route line sources
+  // 4. Update route line layers and sources, ensuring they are re-added and populated on theme changes/style loads
+  const setupRouteLayersAndData = useCallback(() => {
+    if (!map) return;
+
+    // 1. Re-add sources if missing
+    if (!map.getSource('passed-route')) {
+      map.addSource('passed-route', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+    if (!map.getSource('upcoming-route')) {
+      map.addSource('upcoming-route', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // 2. Re-add layers if missing
+    if (!map.getLayer('passed-route-layer')) {
+      map.addLayer({
+        id: 'passed-route-layer',
+        type: 'line',
+        source: 'passed-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': isDarkMode ? '#cbd5e1' : '#475569',
+          'line-width': 5,
+          'line-opacity': isDarkMode ? 0.75 : 0.6,
+        },
+      });
+    } else {
+      map.setPaintProperty(
+        'passed-route-layer',
+        'line-color',
+        isDarkMode ? '#cbd5e1' : '#475569'
+      );
+      map.setPaintProperty(
+        'passed-route-layer',
+        'line-opacity',
+        isDarkMode ? 0.75 : 0.6
+      );
+    }
+    
+    if (!map.getLayer('upcoming-route-layer')) {
+      map.addLayer({
+        id: 'upcoming-route-layer',
+        type: 'line',
+        source: 'upcoming-route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 5,
+          'line-opacity': 0.75,
+        },
+      });
+    }
+
+    // 3. Set the data
+    const passedSource = map.getSource('passed-route') as maplibregl.GeoJSONSource;
+    const upcomingSource = map.getSource('upcoming-route') as maplibregl.GeoJSONSource;
+
+    if (route.length === 0) {
+      if (passedSource) passedSource.setData({ type: 'FeatureCollection', features: [] });
+      if (upcomingSource) upcomingSource.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    const passedCoords = route
+      .slice(0, currentSegmentIndex + 1)
+      .concat(carPosition ? [carPosition] : [])
+      .map(coord => [coord[1], coord[0]]);
+
+    const upcomingCoords = (carPosition ? [carPosition] : [])
+      .concat(route.slice(currentSegmentIndex + 1))
+      .map(coord => [coord[1], coord[0]]);
+
+    if (passedSource && passedCoords.length >= 2) {
+      passedSource.setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: passedCoords,
+            },
+          },
+        ],
+      });
+    } else if (passedSource) {
+      passedSource.setData({ type: 'FeatureCollection', features: [] });
+    }
+
+    if (upcomingSource && upcomingCoords.length >= 2) {
+      upcomingSource.setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: upcomingCoords,
+            },
+          },
+        ],
+      });
+    } else if (upcomingSource) {
+      upcomingSource.setData({ type: 'FeatureCollection', features: [] });
+    }
+  }, [map, route, currentSegmentIndex, carPosition, isDarkMode]);
+
   useEffect(() => {
     if (!map) return;
 
-    const updateRoutes = () => {
-      const passedSource = map.getSource('passed-route') as maplibregl.GeoJSONSource;
-      const upcomingSource = map.getSource('upcoming-route') as maplibregl.GeoJSONSource;
-
-      if (route.length === 0) {
-        if (passedSource) passedSource.setData({ type: 'FeatureCollection', features: [] });
-        if (upcomingSource) upcomingSource.setData({ type: 'FeatureCollection', features: [] });
-        return;
-      }
-
-      // Convert [lat, lon] (from state) to [lon, lat] for MapLibre
-      const passedCoords = route
-        .slice(0, currentSegmentIndex + 1)
-        .concat(carPosition ? [carPosition] : [])
-        .map(coord => [coord[1], coord[0]]);
-
-      const upcomingCoords = (carPosition ? [carPosition] : [])
-        .concat(route.slice(currentSegmentIndex + 1))
-        .map(coord => [coord[1], coord[0]]);
-
-      if (passedSource && passedCoords.length >= 2) {
-        passedSource.setData({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: passedCoords,
-              },
-            },
-          ],
-        });
-      } else if (passedSource) {
-        passedSource.setData({ type: 'FeatureCollection', features: [] });
-      }
-
-      if (upcomingSource && upcomingCoords.length >= 2) {
-        upcomingSource.setData({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: upcomingCoords,
-              },
-            },
-          ],
-        });
-      } else if (upcomingSource) {
-        upcomingSource.setData({ type: 'FeatureCollection', features: [] });
-      }
+    const handleStyleLoad = () => {
+      setupRouteLayersAndData();
     };
 
+    map.on('style.load', handleStyleLoad);
+
     if (map.isStyleLoaded()) {
-      updateRoutes();
-    } else {
-      map.once('style.load', updateRoutes);
+      setupRouteLayersAndData();
     }
-  }, [map, route, currentSegmentIndex, carPosition]);
+
+    return () => {
+      map.off('style.load', handleStyleLoad);
+    };
+  }, [map, setupRouteLayersAndData]);
 
   // 5. Update Origin & Destination Pins
   useEffect(() => {
