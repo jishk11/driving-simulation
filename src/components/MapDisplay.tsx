@@ -31,7 +31,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const haloShadow = useMemo(() => {
     switch (ambientMode) {
       case 'day':
-        return '0 0 50px 15px rgba(147, 197, 253, 0.65), 0 0 25px 5px rgba(255, 255, 255, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.3)';
+        return '0 0 65px 22px rgba(147, 197, 253, 0.72), 0 0 30px 8px rgba(255, 255, 255, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.3)';
       case 'dawn':
         return '0 0 60px 18px rgba(249, 115, 22, 0.6), 0 0 30px 8px rgba(236, 72, 153, 0.5), inset 0 0 35px rgba(254, 215, 170, 0.4)';
       case 'dusk':
