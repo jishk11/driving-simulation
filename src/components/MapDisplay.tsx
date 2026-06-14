@@ -152,7 +152,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
     if (!containerRef.current) return;
 
     const initialStyleUrl = isDarkModeRef.current
-      ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+      ? "https://tiles.openfreemap.org/styles/fiord"
       : "https://tiles.openfreemap.org/styles/liberty";
 
     const newMap = new maplibregl.Map({
@@ -220,7 +220,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
 
     const updateMapTheme = () => {
       const styleUrl = isDarkMode
-        ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+        ? "https://tiles.openfreemap.org/styles/fiord"
         : "https://tiles.openfreemap.org/styles/liberty";
       
       map.setStyle(styleUrl);
@@ -239,36 +239,6 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const setupRouteLayersAndData = useCallback(() => {
     if (!map) return;
 
-    // Add custom low-zoom highway layer for dark mode to make major interstates visible at zoom 4-10
-    if (isDarkMode && map.getSource('carto')) {
-      if (!map.getLayer('custom-highway-lowzoom')) {
-        const firstSymbolLayer = map.getStyle()?.layers?.find(l => l.type === 'symbol');
-        const beforeId = firstSymbolLayer ? firstSymbolLayer.id : undefined;
-
-        map.addLayer({
-          id: 'custom-highway-lowzoom',
-          type: 'line',
-          source: 'carto',
-          'source-layer': 'transportation',
-          minzoom: 4,
-          maxzoom: 10,
-          filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
-          paint: {
-            'line-color': '#384554', // clean, subtle slate-gray that stands out on the dark background
-            'line-width': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              4, 0.8,
-              6, 1.5,
-              8, 2.5,
-              10, 3.5
-            ],
-            'line-opacity': 0.8
-          }
-        }, beforeId);
-      }
-    }
 
     // 1. Re-add sources if missing
     if (!map.getSource('passed-route')) {
