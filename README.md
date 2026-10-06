@@ -9,6 +9,7 @@ Designed as a slow-TV or ambient dashboard experience.
 *   **True 1:1 Real-Time**: Uses absolute time-based interpolation. Even if the browser tab is minimized or suspended for hours, the car will instantly "teleport" to the correct position when you reopen the tab.
 *   **Real-World Speed Limits**: Queries the Overpass API to display the actual posted speed limits of the roads you are driving on. If data is missing, it falls back to realistic speed limit defaults based on road classification.
 *   **Realistic Velocity**: The speedometer moves dynamically, fluctuating realistically around the posted speed limit (slower in residential areas, faster on freeways).
+*   **Signed Highway Directions**: Uses OpenStreetMap road-route membership and direction tags for highway bounds. Compass heading is used only to match travel orientation, so an eastward bend does not turn a northbound highway into an eastbound one. Missing or conflicting metadata leaves the direction label blank.
 *   **Pause & Resume**: Timing offsets are calculated on pause so the car resumes driving exactly where it left off, rather than jumping forward.
 *   **Debug Multipliers**: Toggle between 1x, 10x, 100x, and 1000x speed to easily test and preview longer routes.
 *   **Sleek Dark UI**: Uses CartoDB Dark Matter map tiles, custom start/destination pins, a rotating car marker, and a glassmorphic dashboard HUD showing total distance, ETA, and elapsed time.
@@ -37,3 +38,7 @@ Designed as a slow-TV or ambient dashboard experience.
    ```
 
 3. Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## Direction regression tests
+
+With Node.js 22.6 or newer, run `npm run test:directions`. These tests cover signed directions on bends, concurrent routes, opposite carriageways, reversed ways, and ambiguous or missing metadata.

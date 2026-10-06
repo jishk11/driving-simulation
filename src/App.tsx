@@ -4,8 +4,9 @@ import { Dashboard } from './components/Dashboard';
 import { MapDisplay } from './components/MapDisplay';
 import { WeatherOverlay } from './components/WeatherOverlay';
 import { geocodeAddress, fetchRoute, fetchNearestRoadData, fetchCurrentWeather } from './services/navigation';
+import type { SignedDirection } from './utils/highwayDirection';
 import type { WeatherData } from './services/navigation';
-import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance, calculateBearing } from './utils/geo';
+import { buildCumulativeDurations, interpolatePositionByTime, parseMaxspeedToMps, getHaversineDistance } from './utils/geo';
 
 function App() {
   // Navigation & route states
@@ -37,7 +38,7 @@ function App() {
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [currentStreetName, setCurrentStreetName] = useState<string | null>(null);
   const [currentStreetRef, setCurrentStreetRef] = useState<string | null>(null);
-  const [currentStreetNominalAxis, setCurrentStreetNominalAxis] = useState<'NS' | 'EW' | null>(null);
+  const [currentStreetDirection, setCurrentStreetDirection] = useState<SignedDirection | null>(null);
 
   // Live Weather state
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -48,6 +49,7 @@ function App() {
   const [lastUpdateRealTime, setLastUpdateRealTime] = useState<number>(0);
 
   // Refs for tracking throttled Overpass API queries:
+  const roadRequestGeneration = useRef(0);
   const lastOverpassQueryTime = useRef<number>(0);
   const lastQuerySegmentIndex = useRef<number>(-1);
   const isFetchingOverpass = useRef<boolean>(false);
@@ -56,10 +58,6 @@ function App() {
   const lastWeatherQueryTime = useRef<number>(0);
   const lastWeatherPosition = useRef<[number, number] | null>(null);
   const isFetchingWeather = useRef<boolean>(false);
-
-  // Refs for locking the cardinal bound of the current highway to prevent jitter
-  const lockedHighwayBoundRef = useRef<string>('');
-  const lastSeenRefRef = useRef<string | null>(null);
 
   // Live Traffic Simulation state (only active at 1x speed)
   const liveTrafficRef = useRef({
@@ -117,6 +115,10 @@ function App() {
 
   // Geocoding and Routing handler
   const handleCalculateRoute = async () => {
+    roadRequestGeneration.current += 1;
+    setCurrentStreetName(null);
+    setCurrentStreetRef(null);
+    setCurrentStreetDirection(null);
     setStatus('loading');
     setError(null);
     try {
@@ -262,6 +264,7 @@ function App() {
 
   // Reset all simulation and route state
   const handleReset = () => {
+    roadRequestGeneration.current += 1;
     setStatus('idle');
     setRoute([]);
     setDistance(0);
@@ -280,7 +283,7 @@ function App() {
     setCurrentSegmentIndex(0);
     setCurrentStreetName(null);
     setCurrentStreetRef(null);
-    setCurrentStreetNominalAxis(null);
+    setCurrentStreetDirection(null);
     setWeather(null);
 
     lastOverpassQueryTime.current = 0;
@@ -357,8 +360,10 @@ function App() {
         lastOverpassQueryTime.current = nowOverpass;
         isFetchingOverpass.current = true;
 
-        fetchNearestRoadData(position[0], position[1], osrmSpeedMps, bearing)
+        const requestGeneration = roadRequestGeneration.current;
+        fetchNearestRoadData(position[0], position[1], bearing)
           .then((result) => {
+            if (requestGeneration !== roadRequestGeneration.current) return;
             isFetchingOverpass.current = false;
             if (result) {
               const parsedSpeed = parseMaxspeedToMps(result.maxspeed, result.highway, osrmSpeedMps);
@@ -366,16 +371,19 @@ function App() {
               setIsSpeedLimitFallback(!result.confident);
               setCurrentStreetName(result.name || null);
               setCurrentStreetRef(result.ref || null);
-              setCurrentStreetNominalAxis(result.nominalAxis || null);
+              setCurrentStreetDirection(result.signedDirection);
             } else {
               // No road data found — use heuristic fallback
               const fallbackSpeed = parseMaxspeedToMps(null, null, osrmSpeedMps);
               setSpeedLimitMps(fallbackSpeed);
               setIsSpeedLimitFallback(true);
-              setCurrentStreetNominalAxis(null);
+              setCurrentStreetDirection(null);
+              setCurrentStreetName(null);
+              setCurrentStreetRef(null);
             }
           })
           .catch((err) => {
+            if (requestGeneration !== roadRequestGeneration.current) return;
             isFetchingOverpass.current = false;
             console.error('Overpass background fetch failed:', err);
           });
@@ -525,51 +533,6 @@ function App() {
     ? Math.max(15, Math.round((speedLimitMps * 2.236936) / 5) * 5)
     : 0;
 
-  const getHighwayBound = (
-    _ref: string,
-    routeData: [number, number][],
-    currentIndex: number,
-    nominalAxis: 'NS' | 'EW' | null
-  ) => {
-    if (!routeData || routeData.length === 0) return '';
-
-    // Lock the cardinal bound the first time we enter a new highway.
-    // To prevent locking in a bad direction due to local curves or cloverleafs,
-    // we calculate the "macro bearing" by looking up to 500 coordinate segments into the future!
-    if (_ref !== lastSeenRefRef.current) {
-      lastSeenRefRef.current = _ref;
-
-      let p1 = routeData[currentIndex];
-      const lookAheadIndex = Math.min(currentIndex + 50, routeData.length - 1);
-      if (lookAheadIndex === currentIndex && currentIndex > 0) {
-        p1 = routeData[currentIndex - 1];
-      }
-      const p2 = routeData[lookAheadIndex];
-
-      let bound = '';
-      if (p1 && p2 && (p1[0] !== p2[0] || p1[1] !== p2[1])) {
-        const macroBearing = calculateBearing(p1, p2);
-
-        if (nominalAxis === 'NS') {
-          // Force a binary choice: North or South
-          bound = (macroBearing >= 270 || macroBearing < 90) ? 'NORTH' : 'SOUTH';
-        } else if (nominalAxis === 'EW') {
-          // Force a binary choice: East or West
-          bound = (macroBearing >= 0 && macroBearing < 180) ? 'EAST' : 'WEST';
-        } else {
-          // Fallback to standard 4-way direction based on heading for unnumbered routes and non-US highways
-          if (macroBearing >= 315 || macroBearing < 45) bound = 'NORTH';
-          else if (macroBearing >= 45 && macroBearing < 135) bound = 'EAST';
-          else if (macroBearing >= 135 && macroBearing < 225) bound = 'SOUTH';
-          else if (macroBearing >= 225 && macroBearing < 315) bound = 'WEST';
-        }
-      }
-      lockedHighwayBoundRef.current = bound;
-    }
-    return lockedHighwayBoundRef.current;
-  };
-
-
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col">
       {/* Leaflet Map display takes full viewport background */}
@@ -609,7 +572,7 @@ function App() {
           }`}>
           {currentStreetRef && (
             <div className="flex items-center justify-center bg-blue-600 text-white text-xs font-black px-2.5 py-0.5 rounded shadow-sm border border-blue-500/50 tracking-wide">
-              {currentStreetRef.split(';')[0].replace(' ', '-')} {getHighwayBound(currentStreetRef, route, currentSegmentIndex, currentStreetNominalAxis)}
+              {currentStreetRef.split(';')[0].replace(' ', '-')} {currentStreetDirection}
             </div>
           )}
           {currentStreetName && (

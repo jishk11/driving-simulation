@@ -1,4 +1,6 @@
-import { parseMaxspeedToMps, getHaversineDistance, calculateBearing } from '../utils/geo';
+import { headingDifference, resolveSignedDirection, wayTravelDirection } from '../utils/highwayDirection';
+import type { SignedDirection } from '../utils/highwayDirection';
+import { getHaversineDistance, calculateBearing } from '../utils/geo';
 
 export interface GeocodeResult {
   lat: number;
@@ -259,7 +261,7 @@ export interface OverpassRoadData {
   highway: string | null;
   name: string | null;
   ref: string | null;
-  nominalAxis: 'NS' | 'EW' | null;
+  signedDirection: SignedDirection | null;
   confident: boolean;
 }
 
@@ -277,9 +279,10 @@ let overpassCache: {
   lon: number;
   result: OverpassRoadData | null;
   timestamp: number;
+  bearing: number;
 } | null = null;
 
-const CACHE_RADIUS_M = 80; // Reuse result within 80 meters
+const CACHE_RADIUS_M = 10; // Avoid reusing a neighboring carriageway or interchange result
 const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
 
 /**
@@ -290,14 +293,13 @@ const CACHE_TTL_MS = 30_000; // Cache expires after 30 seconds
 export async function fetchNearestRoadData(
   lat: number,
   lon: number,
-  osrmSpeedMps: number,
   carBearing: number
 ): Promise<OverpassRoadData | null> {
   // Check geographic cache first
   if (overpassCache) {
     const distFromCache = getHaversineDistance([lat, lon], [overpassCache.lat, overpassCache.lon]);
     const age = Date.now() - overpassCache.timestamp;
-    if (distFromCache < CACHE_RADIUS_M && age < CACHE_TTL_MS) {
+    if (distFromCache < CACHE_RADIUS_M && age < CACHE_TTL_MS && headingDifference(carBearing, overpassCache.bearing) < 15) {
       return overpassCache.result;
     }
   }
@@ -342,7 +344,7 @@ export async function fetchNearestRoadData(
       const data = await response.json();
       if (!data || !data.elements || data.elements.length === 0) {
         // Valid response but no roads found — cache this as a real result
-        overpassCache = { lat, lon, result: null, timestamp: Date.now() };
+        overpassCache = { lat, lon, result: null, timestamp: Date.now(), bearing: carBearing };
         return null;
       }
 
@@ -350,16 +352,12 @@ export async function fetchNearestRoadData(
       const relations = data.elements.filter((el: any) => el.type === 'relation' && el.tags);
 
       if (ways.length === 0) {
-        overpassCache = { lat, lon, result: null, timestamp: Date.now() };
+        overpassCache = { lat, lon, result: null, timestamp: Date.now(), bearing: carBearing };
         return null;
       }
 
-      // Separate ways with an explicit maxspeed tag from those without
-      const waysWithMaxspeed = ways.filter((w: any) => w.tags.maxspeed);
-      const candidateWays = waysWithMaxspeed.length > 0 ? waysWithMaxspeed : ways;
-
       // Trajectory Matching: filter candidate ways based on geographic heading
-      const candidatesWithDetails = candidateWays.map((way: any) => {
+      const candidatesWithDetails = ways.map((way: any) => {
         let minWayDistance = Infinity;
         let closestSegmentBearing = 0;
 
@@ -377,17 +375,18 @@ export async function fetchNearestRoadData(
             const latB = pB[0], lonB = pB[1];
 
             const dLat = latB - latA;
-            const dLon = lonB - lonA;
+            const longitudeScale = Math.cos(latP * Math.PI / 180);
+            const dLon = (lonB - lonA) * longitudeScale;
             const len2 = dLat * dLat + dLon * dLon;
 
             let t = 0;
             if (len2 > 0) {
-              t = ((latP - latA) * dLat + (lonP - lonA) * dLon) / len2;
+              t = ((latP - latA) * dLat + (lonP - lonA) * longitudeScale * dLon) / len2;
               t = Math.max(0, Math.min(1, t));
             }
 
             const closestLat = latA + t * dLat;
-            const closestLon = lonA + t * dLon;
+            const closestLon = lonA + t * (lonB - lonA);
             const closestPoint: [number, number] = [closestLat, closestLon];
             const dist = getHaversineDistance(carPos, closestPoint);
 
@@ -396,127 +395,41 @@ export async function fetchNearestRoadData(
               closestSegmentBearing = calculateBearing(pA, pB);
             }
           }
-        } else if (way.geometry && way.geometry.length === 1) {
-          const node = way.geometry[0];
-          minWayDistance = getHaversineDistance([lat, lon], [node.lat, node.lon]);
-          closestSegmentBearing = carBearing;
-        } else {
-          minWayDistance = 9999;
-          closestSegmentBearing = carBearing;
         }
 
-        const angleDiff = Math.abs(carBearing - closestSegmentBearing);
-        const acuteDiff = Math.min(angleDiff, 360 - angleDiff, Math.abs(180 - angleDiff));
 
-        return {
-          way,
-          distance: minWayDistance,
-          bearing: closestSegmentBearing,
-          acuteDiff,
-        };
+        const oneWay = wayTravelDirection(way.tags);
+        const forwardDiff = headingDifference(carBearing, closestSegmentBearing);
+        const backwardDiff = headingDifference(carBearing, closestSegmentBearing + 180);
+        const alignment = oneWay === 1 ? forwardDiff : oneWay === -1 ? backwardDiff
+          : Math.min(forwardDiff, backwardDiff);
+        return { way, distance: minWayDistance, bearing: closestSegmentBearing, alignment };
       });
 
-      // Filter out candidates with a bearing difference of > 35 degrees
-      const alignedCandidates = candidatesWithDetails.filter((c: any) => c.acuteDiff <= 35);
-
-      let finalCandidateWays: any[] = [];
-      if (alignedCandidates.length > 0) {
-        finalCandidateWays = alignedCandidates.map((c: any) => c.way);
-      } else {
-        // Fallback to the physically closest way
-        let closestWay = candidatesWithDetails[0]?.way || null;
-        let minPhysicalDist = Infinity;
-        for (const item of candidatesWithDetails) {
-          if (item.distance < minPhysicalDist) {
-            minPhysicalDist = item.distance;
-            closestWay = item.way;
-          }
-        }
-        finalCandidateWays = closestWay ? [closestWay] : candidateWays;
-      }
-
-      // From final candidates, pick the one whose speed most closely matches the car's current OSRM segment speed
-      let selectedWay = finalCandidateWays[0];
-      let minDifference = Infinity;
-
-      for (const way of finalCandidateWays) {
-        const parsedSpeed = parseMaxspeedToMps(way.tags.maxspeed, way.tags.highway, osrmSpeedMps);
-        const diff = Math.abs(parsedSpeed - osrmSpeedMps);
-        if (diff < minDifference) {
-          minDifference = diff;
-          selectedWay = way;
-        }
-      }
-
+      // Match geometry and legal travel direction before looking at speed tags.
+      // A nearby road's speed limit is not evidence that we are driving on it.
+      const selected = candidatesWithDetails
+        .filter((candidate: { distance: number; alignment: number }) => candidate.distance <= 50 && candidate.alignment <= 35)
+        .sort((a: { distance: number }, b: { distance: number }) => a.distance - b.distance)[0];
+      if (!selected) return null;
+      const selectedWay = selected.way;
       const hasMaxspeed = !!selectedWay.tags.maxspeed;
       const hasHighway = !!selectedWay.tags.highway;
-
-      // Robust Ref Extraction: If the selected sub-segment (like an HOV lane) is missing the 'ref' tag,
-      // scan all nearby ways to find the parent highway's ref.
-      let extractedRef = selectedWay.tags.ref || null;
-      if (!extractedRef) {
-        if (selectedWay.tags.name) {
-          const match = ways.find((w: any) => w.tags.name === selectedWay.tags.name && w.tags.ref);
-          if (match) extractedRef = match.tags.ref;
-        }
-        if (!extractedRef && (selectedWay.tags.highway === 'motorway' || selectedWay.tags.highway === 'trunk')) {
-          const match = ways.find((w: any) => (w.tags.highway === 'motorway' || w.tags.highway === 'trunk') && w.tags.ref);
-          if (match) extractedRef = match.tags.ref;
-        }
-      }
-
-      // Extract nominal axis from way tags or parent route relations
-      let nominalAxis: 'NS' | 'EW' | null = null;
-      let hasNS = false;
-      let hasEW = false;
-
-      const checkAxis = (val: string | null | undefined) => {
-        if (!val) return;
-        const clean = val.toUpperCase().trim();
-        if (/\b(NORTH|SOUTH|N|S)\b/.test(clean)) {
-          hasNS = true;
-        }
-        if (/\b(EAST|WEST|E|W)\b/.test(clean)) {
-          hasEW = true;
-        }
-      };
-
-      // 1. Check direct way tags (OSM direction or cardinal tags)
-      checkAxis(selectedWay.tags.direction);
-      checkAxis(selectedWay.tags.cardinal);
-
-      // 2. Inspect route relations containing this way
-      if (relations.length > 0) {
-        for (const rel of relations) {
-          // Check if it's a road route relation
-          const isRoadRoute = rel.tags?.type === 'route' && rel.tags?.route === 'road';
-          if (!isRoadRoute) continue;
-
-          // Find the member corresponding to our selectedWay
-          const member = rel.members?.find((m: any) => m.type === 'way' && m.ref === selectedWay.id);
-          if (member) {
-            checkAxis(member.role);
-            checkAxis(rel.tags?.direction);
-            checkAxis(rel.tags?.name);
-          }
-        }
-      }
-
-      if (hasNS) {
-        nominalAxis = 'NS';
-      } else if (hasEW) {
-        nominalAxis = 'EW';
-      }
+      // Do not borrow route identities from unrelated roads at an interchange.
+      const extractedRef = selectedWay.tags.ref || null;
+      const signedDirection = resolveSignedDirection(
+        selectedWay, relations, extractedRef, selected.bearing, carBearing,
+      );
 
       const result: OverpassRoadData = {
         maxspeed: selectedWay.tags.maxspeed || null,
         highway: selectedWay.tags.highway || null,
         name: selectedWay.tags.name || null,
         ref: extractedRef,
-        nominalAxis,
+        signedDirection,
         confident: hasMaxspeed || hasHighway,
       };
-      overpassCache = { lat, lon, result, timestamp: Date.now() };
+      overpassCache = { lat, lon, result, timestamp: Date.now(), bearing: carBearing };
       return result;
     } catch (error) {
       console.warn(`Overpass endpoint ${url} failed:`, error);

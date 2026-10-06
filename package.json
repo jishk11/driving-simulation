@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:directions": "node --experimental-strip-types --test tests/highwayDirection.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
