@@ -360,6 +360,14 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const setupHighwayShields = useCallback(() => {
     if (!map) return;
 
+    // Prefer a sprite for this route network (for example us-interstate_2 or
+    // ca-transcanada_2); use the style's generic road shield when it has none.
+    const routeShieldImage = [
+      'coalesce',
+      ['image', ['concat', ['get', 'network'], '_', ['to-string', ['get', 'ref_length']]]],
+      ['image', ['concat', 'road_', ['to-string', ['get', 'ref_length']]]],
+    ];
+
     const layersToAdd: any[] = [
       {
         id: 'highway-shield-non-us',
@@ -374,15 +382,15 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           ['match', ['get', 'network'], ['us-highway', 'us-interstate', 'us-state'], false, true]
         ] as any,
         layout: {
-          'icon-image': ['concat', 'road_', ['get', 'ref_length']],
+          'icon-image': routeShieldImage,
           'icon-rotation-alignment': 'viewport' as const,
-          'icon-size': 1,
+          'icon-size': 1.05,
           'symbol-placement': ['step', ['zoom'], 'point', 11, 'line'] as any,
-          'symbol-spacing': 200,
+          'symbol-spacing': 260,
           'text-field': ['to-string', ['get', 'ref']],
           'text-font': ['Noto Sans Regular'],
           'text-rotation-alignment': 'viewport' as const,
-          'text-size': 10,
+          'text-size': 11,
           // Force rendering on both bounds/directions by ignoring collisions:
           'icon-allow-overlap': true,
           'text-allow-overlap': true,
@@ -390,7 +398,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           'text-ignore-placement': true
         },
         paint: {
-          'text-color': '#ffffff'
+          'text-color': '#172033',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 0.75,
+          'text-halo-blur': 0.25,
         }
       },
       {
@@ -406,15 +417,15 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           ['match', ['get', 'network'], ['us-interstate'], true, false]
         ] as any,
         layout: {
-          'icon-image': ['concat', ['get', 'network'], '_', ['get', 'ref_length']],
+          'icon-image': routeShieldImage,
           'icon-rotation-alignment': 'viewport' as const,
-          'icon-size': 1,
+          'icon-size': 1.12,
           'symbol-placement': ['step', ['zoom'], 'point', 7, 'line', 8, 'line'] as any,
-          'symbol-spacing': 200,
+          'symbol-spacing': 260,
           'text-field': ['to-string', ['get', 'ref']],
           'text-font': ['Noto Sans Regular'],
           'text-rotation-alignment': 'viewport' as const,
-          'text-size': 10,
+          'text-size': 11,
           // Force rendering on both bounds/directions by ignoring collisions:
           'icon-allow-overlap': true,
           'text-allow-overlap': true,
@@ -422,7 +433,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           'text-ignore-placement': true
         },
         paint: {
-          'text-color': '#ffffff'
+          'text-color': '#ffffff',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 0.75,
+          'text-halo-blur': 0.25,
         }
       },
       {
@@ -438,15 +452,15 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           ['match', ['get', 'network'], ['us-highway', 'us-state'], true, false]
         ] as any,
         layout: {
-          'icon-image': ['concat', ['get', 'network'], '_', ['get', 'ref_length']],
+          'icon-image': routeShieldImage,
           'icon-rotation-alignment': 'viewport' as const,
-          'icon-size': 1,
+          'icon-size': 1.05,
           'symbol-placement': ['step', ['zoom'], 'point', 11, 'line'] as any,
-          'symbol-spacing': 200,
+          'symbol-spacing': 260,
           'text-field': ['to-string', ['get', 'ref']],
           'text-font': ['Noto Sans Regular'],
           'text-rotation-alignment': 'viewport' as const,
-          'text-size': 10,
+          'text-size': 11,
           // Force rendering on both bounds/directions by ignoring collisions:
           'icon-allow-overlap': true,
           'text-allow-overlap': true,
@@ -454,7 +468,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
           'text-ignore-placement': true
         },
         paint: {
-          'text-color': '#000000'
+          'text-color': ['match', ['get', 'network'], 'us-state', '#ffffff', '#172033'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 0.75,
+          'text-halo-blur': 0.25,
         }
       }
     ];
